@@ -1,11 +1,16 @@
 # Prerequisites
 *.d
+*.s51
 
 # Object files
 *.o
 *.ko
 *.obj
 *.elf
+*.lst
+*.pbi
+*.r51
+*.d51
 
 # Linker output
 *.ilk
@@ -41,6 +46,8 @@
 *.su
 *.idb
 *.pdb
+*.dbgdt
+*.dni
 
 # Kernel Module Compile Results
 *.mod*
@@ -50,3 +57,6 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+#Others
+*.wsdt

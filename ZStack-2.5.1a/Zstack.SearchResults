@@ -1,0 +1,7 @@
+---- HalDriverInit Matches (6 in 5 files) ----
+Hal_drivers.c (components\hal\common):void HalDriverInit (void)
+Hal_drivers.h (components\hal\include):extern void HalDriverInit (void);
+Hal_key.c (components\hal\target\cc2530usb): * @brief       This function is called by HalDriverInit to initialize the H/W keys.
+Hal_key.c (components\hal\target\cc2530usb): * @brief       This function is called by HalDriverInit to initialize the H/W keys.
+ZMain.c (projects\zstack\zmain\ti2530db):  HalDriverInit();
+ZMain.c (projects\zstack\zmain\ti2530znp):  HalDriverInit();
