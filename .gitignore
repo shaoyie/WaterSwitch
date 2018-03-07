@@ -48,6 +48,7 @@
 *.pdb
 *.dbgdt
 *.dni
+*.pbd
 
 # Kernel Module Compile Results
 *.mod*

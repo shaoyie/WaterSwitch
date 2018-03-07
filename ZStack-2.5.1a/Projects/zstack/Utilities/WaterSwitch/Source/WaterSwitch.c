@@ -60,11 +60,17 @@
 /*********************************************************************
  * INCLUDES
  */
+#include <string.h>
+
 #include "OSAL.h"
 #include "AF.h"
 #include "ZDApp.h"
 #include "ZDObject.h"
 #include "ZDProfile.h"
+
+#include "zcl.h"
+#include "zcl_general.h"
+#include "zcl_ha.h"
 
 #include "WaterSwitch.h"
 #include "DebugTrace.h"
@@ -78,6 +84,7 @@
 #include "hal_led.h"
 #include "hal_key.h"
 #include "hal_uart.h"
+//#include "sapi.h"
 #include "MT_UART.h"
 #include "MT_APP.h"
 #include "MT.h"
@@ -90,7 +97,10 @@
 /*********************************************************************
  * MACROS
  */
+#define uint unsigned int
+#define uchar unsigned char
 
+#define zcl_MandatoryReportableAttribute( a ) ( TRUE /*a.attr.attrId == ATTRID_ON_OFF */)
 /*********************************************************************
  * CONSTANTS
  */
@@ -102,30 +112,6 @@
 /*********************************************************************
  * GLOBAL VARIABLES
  */
-// This list should be filled with Application specific Cluster IDs.
-const cId_t WaterSwitch_ClusterList[WATERSWITCH_MAX_CLUSTERS] =
-{
-  WATERSWITCH_CLUSTERID
-};
-
-const SimpleDescriptionFormat_t WaterSwitch_SimpleDesc =
-{
-  WATERSWITCH_ENDPOINT,              //  int Endpoint;
-  WATERSWITCH_PROFID,                //  uint16 AppProfId[2];
-  WATERSWITCH_DEVICEID,              //  uint16 AppDeviceId[2];
-  WATERSWITCH_DEVICE_VERSION,        //  int   AppDevVer:4;
-  WATERSWITCH_FLAGS,                 //  int   AppFlags:4;
-  WATERSWITCH_MAX_CLUSTERS,          //  byte  AppNumInClusters;
-  (cId_t *)WaterSwitch_ClusterList,  //  byte *pAppInClusterList;
-  WATERSWITCH_MAX_CLUSTERS,          //  byte  AppNumInClusters;
-  (cId_t *)WaterSwitch_ClusterList   //  byte *pAppInClusterList;
-};
-
-// This is the Endpoint/Interface description.  It is defined here, but
-// filled-in in WaterSwitch_Init().  Another way to go would be to fill
-// in the structure here and make it a "const" (in code space).  The
-// way it's defined in this sample app it is define in RAM.
-endPointDesc_t WaterSwitch_epDesc;
 
 /*********************************************************************
  * EXTERNAL VARIABLES
@@ -148,6 +134,16 @@ byte WaterSwitch_TransID;  // This is the unique message ID (counter)
 
 afAddrType_t WaterSwitch_DstAddr;
 
+
+// Event Endpoint to allow SYS_APP_MSGs
+static endPointDesc_t WATERSWITCH_TestEp =
+{
+  100,                                 // Event endpoint
+  &WaterSwitch_TaskID,
+  (SimpleDescriptionFormat_t *)NULL,  // No Simple description for this test endpoint
+  (afNetworkLatencyReq_t)0            // No Network Latency req
+};
+
 /*********************************************************************
  * LOCAL FUNCTIONS
  */
@@ -155,6 +151,55 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg );
 static void WaterSwitch_HandleKeys( byte shift, byte keys );
 static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pckt );
 static void WaterSwitch_SendTheMessage( void );
+static void zclWATERSWITCH_BasicResetCB( void );
+static void zclWATERSWITCH_IdentifyCB( zclIdentify_t *pCmd );
+static void zclWATERSWITCH_IdentifyQueryRspCB(  zclIdentifyQueryRsp_t *pRsp );
+static void zclWATERSWITCH_ProcessIdentifyTimeChange( void );
+
+// Functions to process ZCL Foundation incoming Command/Response messages
+static void zclWATERSWITCH_ProcessIncomingMsg( zclIncomingMsg_t *msg );
+#ifdef ZCL_READ
+static uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg );
+#endif
+#ifdef ZCL_WRITE
+static uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg );
+#endif
+#ifdef ZCL_REPORT
+static uint8 zclWATERSWITCH_ProcessInConfigReportCmd( zclIncomingMsg_t *pInMsg );
+#endif
+static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg );
+#ifdef ZCL_DISCOVER
+static uint8 zclWATERSWITCH_ProcessInDiscRspCmd( zclIncomingMsg_t *pInMsg );
+#endif
+
+// Local functions for setting reporting
+static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
+
+static void InitReportCmd(void);
+
+static zclReportCmd_t *pOnOffReportCmd;      // report command structure
+//static zclReportCmd_t *pTempOccupReportCmd;      // report command structure
+
+/*********************************************************************
+ * ZCL General Profile Callback table
+ */
+static zclGeneral_AppCallbacks_t zclWATERSWITCH_CmdCallbacks =
+{
+  zclWATERSWITCH_BasicResetCB,     // Basic Cluster Reset command
+  zclWATERSWITCH_IdentifyCB,       // Identify command
+  zclWATERSWITCH_IdentifyQueryRspCB, // Identify Query Response command
+  NULL,                         // On / Off cluster command - not needed.
+  NULL,                         // Level Control Move to Level command
+  NULL,                         // Level Control Move command
+  NULL,                         // Level Control Step command
+  NULL,                         // Group Response commands
+  NULL,                         // Scene Store Request command
+  NULL,                         // Scene Recall Request command
+  NULL,                         // Scene Response commands
+  NULL,                         // Alarm (Response) commands
+  NULL,                         // RSSI Location commands
+  NULL,                         // RSSI Location Response commands
+};
 
 #if defined( IAR_ARMCM3_LM )
 static void WaterSwitch_ProcessRtosMessage( void );
@@ -200,16 +245,21 @@ void WaterSwitch_Init( uint8 task_id )
   WaterSwitch_DstAddr.addrMode = (afAddrMode_t)AddrNotPresent;
   WaterSwitch_DstAddr.endPoint = 0;
   WaterSwitch_DstAddr.addr.shortAddr = 0;
+  
+  // This app is part of the Home Automation Profile
+  zclHA_Init( &WaterSwitch_epDesc );
 
-  // Fill out the endpoint description.
-  WaterSwitch_epDesc.endPoint = WATERSWITCH_ENDPOINT;
-  WaterSwitch_epDesc.task_id = &WaterSwitch_TaskID;
-  WaterSwitch_epDesc.simpleDesc
-            = (SimpleDescriptionFormat_t *)&WaterSwitch_SimpleDesc;
-  WaterSwitch_epDesc.latencyReq = noLatencyReqs;
+  // Register the ZCL General Cluster Library callback functions
+  zclGeneral_RegisterCmdCallbacks( WATERSWITCH_ENDPOINT, &zclWATERSWITCH_CmdCallbacks );
+
+  // Register the application's attribute list
+  zcl_registerAttrList( WATERSWITCH_ENDPOINT, WATERSWITCH_MAX_ATTRIBUTES, zclWATERSWITCH_Attrs );
+
+  // Register the Application to receive the unprocessed Foundation command/response messages
+  zcl_registerForMsg( WaterSwitch_TaskID );
 
   // Register the endpoint description with the AF
-  afRegister( &WaterSwitch_epDesc );
+  afRegister( &WATERSWITCH_TestEp );
 
   // Register for all key events - This app will handle all key events
   RegisterForKeys( WaterSwitch_TaskID );
@@ -226,6 +276,22 @@ void WaterSwitch_Init( uint8 task_id )
   // Register this task with RTOS task initiator
   RTOS_RegisterApp( task_id, WATERSWITCH_RTOS_MSG_EVT );
 #endif
+  InitReportCmd();
+}
+
+void InitReportCmd(){
+  int numOnOffAttr=1;
+  //Create the OnOff report command
+  pOnOffReportCmd = (zclReportCmd_t *)osal_mem_alloc( sizeof( zclReportCmd_t ) + ( numOnOffAttr * sizeof( zclReport_t ) ) );
+  if ( pOnOffReportCmd != NULL )
+  {
+    pOnOffReportCmd->numAttr = numOnOffAttr;
+
+    // Set up the first attribute
+    pOnOffReportCmd->attrList[0].attrID = ATTRID_ON_OFF;
+    pOnOffReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT8;
+    pOnOffReportCmd->attrList[0].attrData = &zclWATERSWITCH_OnOff; 
+  }
 }
 
 /*********************************************************************
@@ -250,6 +316,8 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
   byte sentEP;
   ZStatus_t sentStatus;
   byte sentTransID;       // This should match the value sent
+  zAddrType_t dstAddr;
+  uchar strTemp[30];
   (void)task_id;  // Intentionally unreferenced parameter
 
   if ( events & SYS_EVENT_MSG )
@@ -259,6 +327,17 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     {
       switch ( MSGpkt->hdr.event )
       {
+        
+        case ZCL_INCOMING_MSG:
+          // Incoming ZCL Foundation command/response messages
+          zclWATERSWITCH_ProcessIncomingMsg( (zclIncomingMsg_t *)MSGpkt );
+          break;
+          
+        case ZDO_MATCH_DESC_RSP_SENT:
+          sprintf(strTemp, "MATCH_RSP for %x\n\r", ((ZDO_MatchDescRspSent_t *)MSGpkt)->nwkAddr);
+          HalUARTWrite(1, strTemp,strlen(strTemp));
+          break;
+          
         case ZDO_CB_MSG:
           WaterSwitch_ProcessZDOMsgs( (zdoIncomingMsg_t *)MSGpkt );
           break;
@@ -296,7 +375,21 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
               || (WaterSwitch_NwkState == DEV_END_DEVICE) )
           {
             
-          HalUARTWrite(1,"Status changed\n", sizeof("Status changed\n")); 
+          HalUARTWrite(1,"Status changed\n\r", sizeof("Status changed\n\r")); 
+#ifdef WS_COORDINATOR
+          //Allow the devices to bind
+          //zb_AllowBind(0xFF);
+          afSetMatch(WaterSwitch_epDesc.EndPoint, TRUE);
+#else
+          // Initiate a Match Description Request (Service Discovery)
+          dstAddr.addrMode = AddrBroadcast;
+          dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
+          ZDP_MatchDescReq( &dstAddr, NWK_BROADCAST_SHORTADDR,
+                        WATERSWITCH_PROFID,
+                        ZCLWATERSWITCH_MAX_INCLUSTERS, zclWATERSWITCH_InClusterList,
+                        ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,   // No incoming clusters to bind
+                        TRUE );
+#endif
             // Start sending "the" message in a regular interval.
             osal_start_timerEx( WaterSwitch_TaskID,
                                 WATERSWITCH_SEND_MSG_EVT,
@@ -367,9 +460,11 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
  */
 static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
 {
+  uchar strTemp[30];
   switch ( inMsg->clusterID )
   {
     case End_Device_Bind_rsp:
+      HalUARTWrite(1,"End_Device_Bind_rsp\n", sizeof("End_Device_Bind_rsp\n")); 
       if ( ZDO_ParseBindRsp( inMsg ) == ZSuccess )
       {
         // Light LED
@@ -385,6 +480,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
       break;
 
     case Match_Desc_rsp:
+      HalUARTWrite(1,"Match_Desc_rsp\n\r", sizeof("Match_Desc_rsp\n\r")); 
       {
         ZDO_ActiveEndpointRsp_t *pRsp = ZDO_ParseEPListRsp( inMsg );
         if ( pRsp )
@@ -395,7 +491,8 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
             WaterSwitch_DstAddr.addr.shortAddr = pRsp->nwkAddr;
             // Take the first endpoint, Can be changed to search through endpoints
             WaterSwitch_DstAddr.endPoint = pRsp->epList[0];
-
+            sprintf(strTemp, "add:%x ep:%d\n\r", WaterSwitch_DstAddr.addr.shortAddr, WaterSwitch_DstAddr.endPoint);
+            HalUARTWrite(1, strTemp,strlen(strTemp));
             // Light LED
             HalLedSet( HAL_LED_4, HAL_LED_MODE_ON );
           }
@@ -463,11 +560,11 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
       dstAddr.addrMode = Addr16Bit;
       dstAddr.addr.shortAddr = 0x0000; // Coordinator
       ZDP_EndDeviceBindReq( &dstAddr, NLME_GetShortAddr(),
-                            WaterSwitch_epDesc.endPoint,
+                            WaterSwitch_epDesc.EndPoint,
                             WATERSWITCH_PROFID,
-                            WATERSWITCH_MAX_CLUSTERS, (cId_t *)WaterSwitch_ClusterList,
-                            WATERSWITCH_MAX_CLUSTERS, (cId_t *)WaterSwitch_ClusterList,
-                            FALSE );
+                            0, NULL,   // No incoming clusters to bind
+                            ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,
+                            TRUE );
     }
 
     if ( keys & HAL_KEY_SW_3 )
@@ -482,9 +579,9 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
       dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
       ZDP_MatchDescReq( &dstAddr, NWK_BROADCAST_SHORTADDR,
                         WATERSWITCH_PROFID,
-                        WATERSWITCH_MAX_CLUSTERS, (cId_t *)WaterSwitch_ClusterList,
-                        WATERSWITCH_MAX_CLUSTERS, (cId_t *)WaterSwitch_ClusterList,
-                        FALSE );
+                        ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,
+                        0, NULL,   // No incoming clusters to bind
+                        TRUE );
     }
   }
 }
@@ -508,12 +605,14 @@ static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pkt )
 {
   switch ( pkt->clusterId )
   {
+#if 0
     case WATERSWITCH_CLUSTERID:
       // "the" message
 #if defined( LCD_SUPPORTED )
       HalLcdWriteScreen( (char*)pkt->cmd.Data, "rcvd" );
 #elif defined( WIN32 )
       WPRINTSTR( pkt->cmd.Data );
+#endif
 #endif
       break;
   }
@@ -531,7 +630,7 @@ static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pkt )
 static void WaterSwitch_SendTheMessage( void )
 {
   char theMessageData[] = "Hello World";
-
+#if 0
   if ( AF_DataRequest( &WaterSwitch_DstAddr, &WaterSwitch_epDesc,
                        WATERSWITCH_CLUSTERID,
                        (byte)osal_strlen( theMessageData ) + 1,
@@ -545,6 +644,393 @@ static void WaterSwitch_SendTheMessage( void )
   {
     // Error occurred in request to send.
   }
+#endif
+}
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_BasicResetCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library
+ *          to set all the Basic Cluster attributes to  default values.
+ *
+ * @param   none
+ *
+ * @return  none
+ */
+static void zclWATERSWITCH_BasicResetCB( void )
+{
+}
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_IdentifyCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library when
+ *          it received an Identity Command for this application.
+ *
+ * @param   srcAddr - source address and endpoint of the response message
+ * @param   identifyTime - the number of seconds to identify yourself
+ *
+ * @return  none
+ */
+static void zclWATERSWITCH_IdentifyCB( zclIdentify_t *pCmd )
+{
+//  zclWATERSWITCH_IdentifyTime = pCmd->identifyTime;
+//  zclWATERSWITCH_ProcessIdentifyTimeChange();
+}
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_IdentifyQueryRspCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library when
+ *          it received an Identity Query Response Command for this application.
+ *
+ * @param   srcAddr - source address
+ * @param   timeout - number of seconds to identify yourself (valid for query response)
+ *
+ * @return  none
+ */
+static void zclWATERSWITCH_IdentifyQueryRspCB(  zclIdentifyQueryRsp_t *pRsp )
+{
+  // Query Response (with timeout value)
+  (void)pRsp;
+}
+
+/******************************************************************************
+ *
+ *  Functions for processing ZCL Foundation incoming Command/Response messages
+ *
+ *****************************************************************************/
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessIncomingMsg
+ *
+ * @brief   Process ZCL Foundation incoming message
+ *
+ * @param   pInMsg - pointer to the received message
+ *
+ * @return  none
+ */
+static void zclWATERSWITCH_ProcessIncomingMsg( zclIncomingMsg_t *pInMsg )
+{
+  switch ( pInMsg->zclHdr.commandID )
+  {
+#ifdef ZCL_READ
+    case ZCL_CMD_READ_RSP:
+      zclWATERSWITCH_ProcessInReadRspCmd( pInMsg );
+      break;
+#endif
+#ifdef ZCL_WRITE
+    case ZCL_CMD_WRITE_RSP:
+      zclWATERSWITCH_ProcessInWriteRspCmd( pInMsg );
+      break;
+#endif
+#ifdef ZCL_REPORT
+    // See ZCL Test Applicaiton (zcl_testapp.c) for sample code on Attribute Reporting
+    case ZCL_CMD_CONFIG_REPORT:
+      zclWATERSWITCH_ProcessInConfigReportCmd( pInMsg );
+      break;
+
+    case ZCL_CMD_CONFIG_REPORT_RSP:
+      //zclWATERSWITCH_ProcessInConfigReportRspCmd( pInMsg );
+      break;
+
+    case ZCL_CMD_READ_REPORT_CFG:
+      //zclWATERSWITCH_ProcessInReadReportCfgCmd( pInMsg );
+      break;
+
+    case ZCL_CMD_READ_REPORT_CFG_RSP:
+      //zclWATERSWITCH_ProcessInReadReportCfgRspCmd( pInMsg );
+      break;
+    
+    case ZCL_CMD_REPORT:
+      zclWATERSWITCH_ProcessInReportCmd( pInMsg );
+      break;
+#endif
+    case ZCL_CMD_DEFAULT_RSP:
+      zclWATERSWITCH_ProcessInDefaultRspCmd( pInMsg );
+      break;
+#ifdef ZCL_DISCOVER
+    case ZCL_CMD_DISCOVER_RSP:
+      zclWATERSWITCH_ProcessInDiscRspCmd( pInMsg );
+      break;
+#endif
+    default:
+      break;
+  }
+
+  if ( pInMsg->attrCmd )
+    osal_mem_free( pInMsg->attrCmd );
+}
+
+#ifdef ZCL_READ
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInReadRspCmd
+ *
+ * @brief   Process the "Profile" Read Response Command
+ *
+ * @param   pInMsg - incoming message to process
+ *
+ * @return  none
+ */
+static uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclReadRspCmd_t *readRspCmd;
+  uint8 i;
+
+  readRspCmd = (zclReadRspCmd_t *)pInMsg->attrCmd;
+  for (i = 0; i < readRspCmd->numAttr; i++)
+  {
+    // Notify the originator of the results of the original read attributes
+    // attempt and, for each successfull request, the value of the requested
+    // attribute
+  }
+
+  return TRUE;
+}
+#endif // ZCL_READ
+
+#ifdef ZCL_WRITE
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInWriteRspCmd
+ *
+ * @brief   Process the "Profile" Write Response Command
+ *
+ * @param   pInMsg - incoming message to process
+ *
+ * @return  none
+ */
+static uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclWriteRspCmd_t *writeRspCmd;
+  uint8 i;
+
+  writeRspCmd = (zclWriteRspCmd_t *)pInMsg->attrCmd;
+  for (i = 0; i < writeRspCmd->numAttr; i++)
+  {
+    // Notify the device of the results of the its original write attributes
+    // command.
+  }
+
+  return TRUE;
+}
+#endif // ZCL_WRITE
+
+#ifdef ZCL_REPORT
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInConfigReportCmd
+ *
+ * @brief   Process the "Profile" Configure Reporting Command
+ *
+ * @param   pInMsg - incoming message to process
+ * @param   logicalClusterID - logical cluster ID
+ *
+ * @return  TRUE if attribute was found in the Attribute list,
+ *          FALSE if not
+ */
+static uint8 zclWATERSWITCH_ProcessInConfigReportCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclCfgReportCmd_t *cfgReportCmd;
+  zclCfgReportRec_t *reportRec;
+  zclCfgReportRspCmd_t *cfgReportRspCmd;
+  zclAttrRec_t attrRec;
+  uint8 status;
+  uint8 i, j = 0;
+  
+  cfgReportCmd = (zclCfgReportCmd_t *)pInMsg->attrCmd;
+  
+  // Allocate space for the response command
+  cfgReportRspCmd = (zclCfgReportRspCmd_t *)osal_mem_alloc( sizeof ( zclCfgReportRspCmd_t ) + \
+                                                            ( cfgReportCmd->numAttr * sizeof ( zclCfgReportStatus_t) ) );
+  if ( cfgReportRspCmd == NULL )
+    return FALSE; // EMBEDDED RETURN
+  
+  // Process each Attribute Reporting Configuration record
+  for ( i = 0; i < cfgReportCmd->numAttr; i++ )
+  {
+    reportRec = &(cfgReportCmd->attrList[i]);
+    
+    status = ZCL_STATUS_SUCCESS;
+    
+    if ( zclFindAttrRec( WATERSWITCH_ENDPOINT, pInMsg->clusterId, reportRec->attrID, &attrRec ) )
+    {
+      if ( reportRec->direction == ZCL_SEND_ATTR_REPORTS )
+      {
+        if ( reportRec->dataType == attrRec.attr.dataType )
+        {
+          // This the attribute that is to be reported
+          if ( zcl_MandatoryReportableAttribute( attrRec ) == TRUE )
+          {
+#if 0
+            if ( reportRec->minReportInt < ZCL_MIN_REPORTING_INTERVAL ||
+                 ( reportRec->maxReportInt != 0 && 
+                   reportRec->maxReportInt < reportRec->minReportInt ) )
+            {
+              // Invalid fields
+              status = ZCL_STATUS_INVALID_VALUE;
+            }
+            else
+            {
+              // Set the Min and Max Reporting Intervals and Reportable Change
+              status = zclWATERSWITCH_SetAttrReportInterval( &attrRec.attr, reportRec );
+            }
+#endif
+          }
+          else
+          {
+            // Attribute cannot be reported
+            status = ZCL_STATUS_UNREPORTABLE_ATTRIBUTE;
+          }
+        }
+        else
+        {
+          // Attribute data type is incorrect
+          status = ZCL_STATUS_INVALID_DATA_TYPE;
+        }
+      }
+      else
+      {
+        // We shall expect reports of values of this attribute
+        if ( zcl_MandatoryReportableAttribute( attrRec ) == TRUE )
+        {    
+          // Set the Timeout Period
+//          status = zclWATERSWITCH_SetAttrTimeoutPeriod( &attrRec.attr, reportRec );
+        }
+        else
+        {
+          // Reports of attribute cannot be received
+          status = ZCL_STATUS_UNSUPPORTED_ATTRIBUTE;
+        }
+      }   
+    }
+    else
+    {
+      // Attribute is not supported
+      status = ZCL_STATUS_UNSUPPORTED_ATTRIBUTE;
+    }
+    
+    // If not successful then record the status
+    if ( status != ZCL_STATUS_SUCCESS )
+    {
+      cfgReportRspCmd->attrList[j].status = status;
+      cfgReportRspCmd->attrList[j].direction = reportRec->direction;
+      cfgReportRspCmd->attrList[j++].attrID = reportRec->attrID;
+    }
+  } // for loop
+  
+  cfgReportRspCmd->numAttr = j;
+  if ( cfgReportRspCmd->numAttr == 0 )
+  {
+    // Since all attributes were configured successfully, include a single 
+    // attribute status record in the response command with the status field
+    // set to SUCCESS and the attribute ID field omitted.
+    cfgReportRspCmd->attrList[0].status = ZCL_STATUS_SUCCESS;
+    cfgReportRspCmd->numAttr = 1;
+  }
+
+  // Send the response back
+  zcl_SendConfigReportRspCmd( WATERSWITCH_ENDPOINT, &(pInMsg->srcAddr), 
+                              pInMsg->clusterId, cfgReportRspCmd, ZCL_FRAME_SERVER_CLIENT_DIR, 
+                              true, pInMsg->zclHdr.transSeqNum );
+  osal_mem_free( cfgReportRspCmd );
+  
+  return TRUE ;
+}
+#endif // ZCL_REPORT
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInDefaultRspCmd
+ *
+ * @brief   Process the "Profile" Default Response Command
+ *
+ * @param   pInMsg - incoming message to process
+ *
+ * @return  none
+ */
+static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
+{
+  // zclDefaultRspCmd_t *defaultRspCmd = (zclDefaultRspCmd_t *)pInMsg->attrCmd;
+  // Device is notified of the Default Response command.
+  (void)pInMsg;
+  return TRUE;
+}
+
+#ifdef ZCL_DISCOVER
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInDiscRspCmd
+ *
+ * @brief   Process the "Profile" Discover Response Command
+ *
+ * @param   pInMsg - incoming message to process
+ *
+ * @return  none
+ */
+static uint8 zclWATERSWITCH_ProcessInDiscRspCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclDiscoverRspCmd_t *discoverRspCmd;
+  uint8 i;
+
+  discoverRspCmd = (zclDiscoverRspCmd_t *)pInMsg->attrCmd;
+  for ( i = 0; i < discoverRspCmd->numAttr; i++ )
+  {
+    // Device is notified of the result of its attribute discovery command.
+  }
+
+  return TRUE;
+}
+#endif // ZCL_DISCOVER
+
+/*********************************************************************
+ * @fn      zclWATERSWITCH_ProcessInReportCmd
+ *
+ * @brief   Process the "Profile" Report Command
+ *
+ * @param   pInMsg - incoming message to process
+ *
+ * @return  none
+ */
+static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclReportCmd_t *reportCmd;
+  zclReport_t *reportRec;
+  uint8 i;
+  uint8 *OnOffState;
+
+  reportCmd = (zclReportCmd_t *)pInMsg->attrCmd;
+  for (i = 0; i < reportCmd->numAttr; i++)
+  {
+    // Device is notified of the latest values of the attribute of another device.
+    reportRec = &(reportCmd->attrList[i]);
+
+    if ( reportRec->attrID == ATTRID_ON_OFF )
+    {
+      static uint8 DlvdCnt=0;
+      char lcd_buf[32] = "On/Off Attr ";
+      OnOffState = reportRec->attrData;
+
+#ifdef LCD_SUPPORTED       
+      // print out value of On/Off Attr
+      HalLcdWriteString("Zigbee Coord Sw", HAL_LCD_LINE_1);  
+      lcd_buf[12] = (DlvdCnt++ & 0x7) + 48; //count 0-7 and then rap around
+      HalLcdWriteString(lcd_buf, HAL_LCD_LINE_2);      
+
+      if ( *OnOffState == LIGHT_ON )
+        HalLcdWriteString("ON", HAL_LCD_LINE_3);
+      else
+        HalLcdWriteString("OFF", HAL_LCD_LINE_3);
+#endif //LCD_SUPPORTED 
+    }
+
+#if 0    
+    if(OnOffReportTimeoutPeriod)
+    {
+      //Reset the timer. Time out in ms so *1000 to get seconds     
+      osal_stop_timerEx( zclWATERSWITCH_TaskID, WATERSWITCH_ON_OFF_REPORT_ATTRIBUTE_TIMEOUT_EVT );
+      osal_start_timerEx( zclWATERSWITCH_TaskID, WATERSWITCH_ON_OFF_REPORT_ATTRIBUTE_TIMEOUT_EVT, OnOffReportTimeoutPeriod*1000 );    
+    }
+    
+#endif
+  }
+  return TRUE;
 }
 
 #if defined( IAR_ARMCM3_LM )

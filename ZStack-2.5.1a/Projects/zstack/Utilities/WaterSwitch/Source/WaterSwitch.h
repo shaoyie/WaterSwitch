@@ -48,23 +48,46 @@ extern "C"
 /*********************************************************************
  * INCLUDES
  */
+#include "zcl.h"
+#include "zcl_ms.h"
 #include "ZComDef.h"
 
 /*********************************************************************
  * CONSTANTS
  */
-
+//Only choose one of the four
+#define WS_COORDINATOR
+//#define WS_PUMP
+//#define WS_TEMP
+//#define WS_GATEWAY
+  
 // These constants are only for example and should be changed to the
 // device's needs
 #define WATERSWITCH_ENDPOINT           20
 
-#define WATERSWITCH_PROFID             0x0F08
-#define WATERSWITCH_DEVICEID           0x0001
-#define WATERSWITCH_DEVICE_VERSION     0
-#define WATERSWITCH_FLAGS              0
-
+#define WATERSWITCH_PROFID             ZCL_HA_PROFILE_ID //0x0104
+  
+#ifdef WS_COORDINATOR
+  
+#define WATERSWITCH_DEVICEID           0x0304   
+#define ZCLWATERSWITCH_MAX_INCLUSTERS        4
+#define ZCLWATERSWITCH_MAX_OUTCLUSTERS       4 
+#define WATERSWITCH_MAX_ATTRIBUTES        13
+  
+#elif defined(WS_PUMP)
+#define WATERSWITCH_DEVICEID           0x0303
 #define WATERSWITCH_MAX_CLUSTERS       1
-#define WATERSWITCH_CLUSTERID          1
+  
+#elif defined(WS_TEMP)
+#define WATERSWITCH_DEVICEID           0x0302
+#define ZCLWATERSWITCH_MAX_INCLUSTERS        1
+#define ZCLWATERSWITCH_MAX_OUTCLUSTERS       3
+#define WATERSWITCH_MAX_ATTRIBUTES        12
+  
+#else
+#define WATERSWITCH_DEVICEID           0x0006
+#endif
+
 
 // Send Message Timeout
 #define WATERSWITCH_SEND_MSG_TIMEOUT   5000     // Every 5 seconds
@@ -75,6 +98,12 @@ extern "C"
 #if defined( IAR_ARMCM3_LM )
 #define WATERSWITCH_RTOS_MSG_EVT       0x0002
 #endif  
+  
+#define PUMP_OFF                       0x00
+#define PUMP_ON                        0x01
+  
+#define SALOR_OFF                       0x00
+#define SALOR_ON                        0x01
 
 /*********************************************************************
  * MACROS
@@ -88,11 +117,21 @@ extern "C"
  * Task Initialization for the Generic Application
  */
 extern void WaterSwitch_Init( byte task_id );
+extern SimpleDescriptionFormat_t WaterSwitch_epDesc;
 
+extern CONST zclAttrRec_t zclWATERSWITCH_Attrs[];
 /*
  * Task Event Processor for the Generic Application
  */
 extern UINT16 WaterSwitch_ProcessEvent( byte task_id, UINT16 events );
+
+// The status value we care
+extern uint8  zclWATERSWITCH_OnOff;
+extern uint16  zclWATERSWITCH_Temp;
+extern uint16  zclWATERSWITCH_Occupancy;
+
+extern cId_t zclWATERSWITCH_InClusterList[];
+extern cId_t zclWATERSWITCH_OutClusterList[];
 
 /*********************************************************************
 *********************************************************************/

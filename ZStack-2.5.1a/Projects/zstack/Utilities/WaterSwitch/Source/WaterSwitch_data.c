@@ -192,7 +192,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_IdentifyTime
     }
   },
-  
+#if defined(WS_COORDINATOR)
   // *** On / Off Cluster Attributes ***
   {
     ZCL_CLUSTER_ID_GEN_ON_OFF,
@@ -203,7 +203,8 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_OnOff
     }
   },
-  
+#endif
+#if defined(WS_COORDINATOR) || defined(WS_TEMP)
   // *** Temprature Cluster Attributes ***
   {
     ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
@@ -211,7 +212,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       ATTRID_MS_TEMPERATURE_MEASURED_VALUE,
       ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ,
-      (void *)&zclWATERSWITCH_Temps
+      (void *)&zclWATERSWITCH_Temp
     }
   },
   
@@ -225,6 +226,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_Occupancy
     }
   },
+#endif
 };
 
 /*********************************************************************
@@ -232,9 +234,8 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
  */
 // This is the Cluster ID List and should be filled with Application
 // specific cluster IDs.
-#ifdef WATERSWITCH_PROFID
-#define ZCLWATERSWITCH_MAX_INCLUSTERS       2
-const cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
+#ifdef WS_COORDINATOR
+cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
 {
   ZCL_CLUSTER_ID_GEN_BASIC,
   ZCL_CLUSTER_ID_GEN_ON_OFF,
@@ -242,20 +243,32 @@ const cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
   ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
 };
 
-#define ZCLWATERSWITCH_MAX_OUTCLUSTERS       1
-const cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
+cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_GEN_ON_OFF
+  ZCL_CLUSTER_ID_GEN_BASIC,
+  ZCL_CLUSTER_ID_GEN_ON_OFF,
+  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
 };
 #elif defined(WS_PUMP)
 
 #elif defined(WS_TEMP)
+cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
+{
+  ZCL_CLUSTER_ID_GEN_BASIC
+};
 
+cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
+{
+  ZCL_CLUSTER_ID_GEN_BASIC,
+  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
+  ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
+};
 #else
 
 #endif
 
-SimpleDescriptionFormat_t zclWATERSWITCH_SimpleDesc =
+SimpleDescriptionFormat_t WaterSwitch_epDesc =
 {
   WATERSWITCH_ENDPOINT,                  //  int Endpoint;
   WATERSWITCH_PROFID,                  //  uint16 AppProfId[2];

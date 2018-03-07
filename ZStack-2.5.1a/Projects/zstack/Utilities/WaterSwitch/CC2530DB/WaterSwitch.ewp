@@ -204,7 +204,7 @@
         </option>
         <option>
           <name>General Huge Heap Size</name>
-          <state>0x000</state>
+          <state>0xFFF</state>
         </option>
         <option>
           <name>CodeBankNrOfs</name>
@@ -347,7 +347,7 @@
         </option>
         <option>
           <name>CCRequirePrototypes</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>CCMultibyteSupport</name>
@@ -448,6 +448,7 @@
           <name>CCIncludePath2</name>
           <state>$PROJ_DIR$</state>
           <state>$PROJ_DIR$\..\Source</state>
+          <state>$PROJ_DIR$\..\..\..\HomeAutomation\Source</state>
           <state>$PROJ_DIR$\..\..\..\ZMain\TI2530DB</state>
           <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\include</state>
           <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2530EB</state>
@@ -792,7 +793,7 @@
         </option>
         <option>
           <name>XclFile</name>
-          <state>$PROJ_DIR$\..\..\..\Tools\CC2530DB\f8w2530.xcl</state>
+          <state>Z:\WaterSwitch\ZStack-2.5.1a\Projects\zstack\Tools\CC2530DB\f8w2530.xcl</state>
         </option>
         <option>
           <name>XclFileSlave</name>
@@ -912,24 +913,24 @@
         </option>
         <option>
           <name>AllowExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>GenerateExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>XExtraOutOverride</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>WaterSwitch.sim</state>
+          <state>WaterSwitch.hex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
           <version>11</version>
-          <state>60</state>
+          <state>23</state>
         </option>
         <option>
           <name>ExtraFormatVariant</name>
@@ -2274,20 +2275,20 @@
         <option>
           <name>Input variant</name>
           <version>0</version>
-          <state>2</state>
+          <state>1</state>
         </option>
         <option>
           <name>Input description</name>
-          <state>No float.</state>
+          <state>Full formatting.</state>
         </option>
         <option>
           <name>Output variant</name>
           <version>0</version>
-          <state>3</state>
+          <state>1</state>
         </option>
         <option>
           <name>Output description</name>
-          <state>No float, no field width, no precision.</state>
+          <state>Full formatting.</state>
         </option>
         <option>
           <name>GeneralEnableMisra</name>
@@ -2323,7 +2324,7 @@
         </option>
         <option>
           <name>General Huge Heap Size</name>
-          <state>0x000</state>
+          <state>0xFFF</state>
         </option>
         <option>
           <name>CodeBankNrOfs</name>
@@ -2468,7 +2469,7 @@
         </option>
         <option>
           <name>CCRequirePrototypes</name>
-          <state>1</state>
+          <state>0</state>
         </option>
         <option>
           <name>CCMultibyteSupport</name>
@@ -2569,6 +2570,7 @@
           <name>CCIncludePath2</name>
           <state>$PROJ_DIR$</state>
           <state>$PROJ_DIR$\..\Source</state>
+          <state>$PROJ_DIR$\..\..\..\HomeAutomation\Source</state>
           <state>$PROJ_DIR$\..\..\..\ZMain\TI2530DB</state>
           <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\include</state>
           <state>$PROJ_DIR$\..\..\..\..\..\Components\hal\target\CC2530EB</state>
@@ -3033,24 +3035,24 @@
         </option>
         <option>
           <name>AllowExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>GenerateExtraOutput</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>XExtraOutOverride</name>
-          <state>0</state>
+          <state>1</state>
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>WaterSwitch.sim</state>
+          <state>WaterSwitch.hex</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
           <version>11</version>
-          <state>60</state>
+          <state>23</state>
         </option>
         <option>
           <name>ExtraFormatVariant</name>
@@ -3194,6 +3196,9 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\WaterSwitch.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_data.c</name>
     </file>
   </group>
   <group>
@@ -3632,6 +3637,24 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\..\..\..\..\Components\stack\af\AF.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl\zcl.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl\zcl.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl\zcl_general.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\..\..\Components\stack\zcl\zcl_general.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\HomeAutomation\Source\zcl_ha.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\..\..\HomeAutomation\Source\zcl_ha.h</name>
     </file>
   </group>
   <group>
