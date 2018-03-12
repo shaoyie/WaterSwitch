@@ -22,7 +22,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -127,6 +127,12 @@
   #define LED3_SBIT         P1_4
   #define LED3_DDR          P1DIR
   #define LED3_POLARITY     ACTIVE_HIGH
+
+  /* 4 - Yellow */
+  #define LED4_BV           BV(5)
+  #define LED4_SBIT         P1_5
+  #define LED4_DDR          P1DIR
+  #define LED4_POLARITY     ACTIVE_HIGH
 #endif
 
 /* ------------------------------------------------------------------------------------------------
@@ -138,8 +144,8 @@
 #define ACTIVE_HIGH       !!    /* double negation forces result to be '1' */
 
 /* S1 */
-#define PUSH1_BV          BV(1)
-#define PUSH1_SBIT        P0_1
+#define PUSH1_BV          BV(6)
+#define PUSH1_SBIT        P0_6
 
 #if defined (HAL_BOARD_CC2530EB_REV17)
   #define PUSH1_POLARITY    ACTIVE_HIGH
@@ -150,8 +156,8 @@
 #endif
 
 /* Joystick Center Press */
-#define PUSH2_BV          BV(0)
-#define PUSH2_SBIT        P2_0
+#define PUSH2_BV          BV(7)
+#define PUSH2_SBIT        P0_7
 #define PUSH2_POLARITY    ACTIVE_HIGH
 
 /* ------------------------------------------------------------------------------------------------
@@ -251,8 +257,11 @@ extern void MAC_RfFrontendSetup(void);
   LED2_DDR |= LED2_BV;                                           \
   HAL_TURN_OFF_LED3();                                           \
   LED3_DDR |= LED3_BV;                                           \
+  HAL_TURN_OFF_LED4();                                           \
+  LED4_DDR |= LED4_BV;                                           \
                                                                  \
   /* configure tristates */                                      \
+  P0INP |= PUSH1_BV;                                             \
   P0INP |= PUSH2_BV;                                             \
 }
 
@@ -305,22 +314,22 @@ extern void MAC_RfFrontendSetup(void);
   #define HAL_TURN_OFF_LED1()       st( LED1_SBIT = LED1_POLARITY (0); )
   #define HAL_TURN_OFF_LED2()       st( LED2_SBIT = LED2_POLARITY (0); )
   #define HAL_TURN_OFF_LED3()       st( LED3_SBIT = LED3_POLARITY (0); )
-  #define HAL_TURN_OFF_LED4()       HAL_TURN_OFF_LED1()
+  #define HAL_TURN_OFF_LED4()       st( LED4_SBIT = LED3_POLARITY (0); )
 
   #define HAL_TURN_ON_LED1()        st( LED1_SBIT = LED1_POLARITY (1); )
   #define HAL_TURN_ON_LED2()        st( LED2_SBIT = LED2_POLARITY (1); )
   #define HAL_TURN_ON_LED3()        st( LED3_SBIT = LED3_POLARITY (1); )
-  #define HAL_TURN_ON_LED4()        HAL_TURN_ON_LED1()
+  #define HAL_TURN_ON_LED4()        st( LED4_SBIT = LED3_POLARITY (1); )
 
   #define HAL_TOGGLE_LED1()         st( if (LED1_SBIT) { LED1_SBIT = 0; } else { LED1_SBIT = 1;} )
   #define HAL_TOGGLE_LED2()         st( if (LED2_SBIT) { LED2_SBIT = 0; } else { LED2_SBIT = 1;} )
   #define HAL_TOGGLE_LED3()         st( if (LED3_SBIT) { LED3_SBIT = 0; } else { LED3_SBIT = 1;} )
-  #define HAL_TOGGLE_LED4()         HAL_TOGGLE_LED1()
+  #define HAL_TOGGLE_LED4()         st( if (LED4_SBIT) { LED3_SBIT = 0; } else { LED4_SBIT = 1;} )
 
   #define HAL_STATE_LED1()          (LED1_POLARITY (LED1_SBIT))
   #define HAL_STATE_LED2()          (LED2_POLARITY (LED2_SBIT))
   #define HAL_STATE_LED3()          (LED3_POLARITY (LED3_SBIT))
-  #define HAL_STATE_LED4()          HAL_STATE_LED1()
+  #define HAL_STATE_LED4()          (LED4_POLARITY (LED4_SBIT))
 
 #elif defined (HAL_BOARD_CC2530EB_REV13) || defined (HAL_PA_LNA) || defined (HAL_PA_LNA_CC2590)
 

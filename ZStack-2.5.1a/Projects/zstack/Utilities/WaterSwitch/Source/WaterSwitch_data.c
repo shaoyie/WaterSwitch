@@ -78,7 +78,17 @@
 const uint8 zclWATERSWITCH_HWRevision = WATERSWITCH_HWVERSION;
 const uint8 zclWATERSWITCH_ZCLVersion = WATERSWITCH_ZCLVERSION;
 const uint8 zclWATERSWITCH_ManufacturerName[] = { 16, 'S','a','w','y','e','r',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
+#if DEVICE_TYPE==WS_COORDINATOR
 const uint8 zclWATERSWITCH_ModelId[] = { 16, 'W','A','T','E','R','S','W','I','T','C','H',' ',' ',' ',' ',' ' };
+#elif DEVICE_TYPE==WS_PUMP
+const uint8 zclWATERSWITCH_ModelId[] = { 16, 'W','A','T','E','R','S','W','I','T','C','H','_','P','U','M','P' };
+#elif DEVICE_TYPE==WS_TEMP
+const uint8 zclWATERSWITCH_ModelId[] = { 16, 'W','A','T','E','R','S','W','I','T','C','H','_','T','E','M','P' };
+#elif DEVICE_TYPE==WS_GATEWAY
+const uint8 zclWATERSWITCH_ModelId[] = { 16, 'W','A','T','E','R','S','W','I','T','C','H','_','G','W',' ',' ' };
+#else
+const uint8 zclWATERSWITCH_ModelId[] = { 16, 'W','A','T','E','R','S','W','I','T','C','H','_','T','B','D',' ' };
+#endif
 const uint8 zclWATERSWITCH_DateCode[] = { 16, '2','0','1','8','0','3','0','6',' ',' ',' ',' ',' ',' ',' ',' ' };
 const uint8 zclWATERSWITCH_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
 
@@ -91,8 +101,11 @@ uint16 zclWATERSWITCH_IdentifyTime = 0;
 
 // The status value we care
 uint8  zclWATERSWITCH_OnOff = SALOR_OFF;
+uint8 zclWATERSWITCH_OnOffSwitch = AUTO_CONTROL;
+
 uint16  zclWATERSWITCH_Temp = 0;
 uint16  zclWATERSWITCH_Occupancy = 0;
+uint8  zclWATERSWITCH_Flow = 0;
 
 /*********************************************************************
  * ATTRIBUTE DEFINITIONS - Uses REAL cluster IDs
@@ -192,7 +205,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_IdentifyTime
     }
   },
-#if defined(WS_COORDINATOR)
+#if DEVICE_TYPE==WS_COORDINATOR
   // *** On / Off Cluster Attributes ***
   {
     ZCL_CLUSTER_ID_GEN_ON_OFF,
@@ -203,8 +216,18 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_OnOff
     }
   },
+  // *** On / Off Cluster Attributes ***
+  {
+    ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG,
+    { // Attribute record
+      ATTRID_ON_OFF_SWITCH_ACTIONS,
+      ZCL_DATATYPE_UINT8,
+      (ACCESS_CONTROL_READ | ACCESS_CONTROL_WRITE),
+      (void *)&zclWATERSWITCH_OnOffSwitch
+    }
+  },
 #endif
-#if defined(WS_COORDINATOR) || defined(WS_TEMP)
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_TEMP
   // *** Temprature Cluster Attributes ***
   {
     ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
@@ -226,6 +249,17 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_Occupancy
     }
   },
+  
+  // *** Flow Cluster Attributes ***
+  {
+    ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT,
+    { // Attribute record
+      ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE,
+      ZCL_DATATYPE_UINT8,
+      ACCESS_CONTROL_READ,
+      (void *)&zclWATERSWITCH_Flow
+    }
+  },
 #endif
 };
 
@@ -234,35 +268,35 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
  */
 // This is the Cluster ID List and should be filled with Application
 // specific cluster IDs.
-#ifdef WS_COORDINATOR
+#if DEVICE_TYPE==WS_COORDINATOR
 cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_GEN_BASIC,
   ZCL_CLUSTER_ID_GEN_ON_OFF,
+  ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG,
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
   ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
+  ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT,
 };
 
 cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_GEN_BASIC,
   ZCL_CLUSTER_ID_GEN_ON_OFF,
+  ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG,
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
   ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
 };
-#elif defined(WS_PUMP)
+#elif DEVICE_TYPE==WS_PUMP
 
-#elif defined(WS_TEMP)
+#elif DEVICE_TYPE==WS_TEMP
 cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_GEN_BASIC
 };
 
 cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
 {
-  ZCL_CLUSTER_ID_GEN_BASIC,
   ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
   ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
+  ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT,
 };
 #else
 
