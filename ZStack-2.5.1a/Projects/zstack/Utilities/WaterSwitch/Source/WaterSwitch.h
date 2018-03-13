@@ -57,7 +57,7 @@ extern "C"
 /*********************************************************************
  * CONSTANTS
  */
-#define DEVICE_TYPE   WS_COORDINATOR
+#define DEVICE_TYPE   WS_PUMP
 //Only choose one of the four
 #define WS_COORDINATOR  1
 #define WS_PUMP   2
@@ -81,11 +81,13 @@ extern "C"
   
 #elif DEVICE_TYPE==WS_PUMP
 #define WATERSWITCH_DEVICEID           ZCL_HA_DEVICEID_PUMP
-#define WATERSWITCH_MAX_CLUSTERS       1
+#define ZCLWATERSWITCH_MAX_INCLUSTERS        1
+#define ZCLWATERSWITCH_MAX_OUTCLUSTERS       1
+#define WATERSWITCH_MAX_ATTRIBUTES        12
   
 #elif DEVICE_TYPE==WS_TEMP
 #define WATERSWITCH_DEVICEID           ZCL_HA_DEVICEID_TEMPERATURE_SENSOR
-#define ZCLWATERSWITCH_MAX_INCLUSTERS        1
+#define ZCLWATERSWITCH_MAX_INCLUSTERS        0
 #define ZCLWATERSWITCH_MAX_OUTCLUSTERS       3
 #define WATERSWITCH_MAX_ATTRIBUTES        13
   
@@ -96,12 +98,14 @@ extern "C"
 
 // Send Message Timeout
 #define WATERSWITCH_REGULAR_TASK_TIMEOUT   5000     // Every 5 seconds
+#define WATERSWITCH_VALVE_TIMEOUT   15000
   
 #define WATERSWITCH_DELAY_TIMEOUT   1000
 
 // Application Events (OSAL) - These are bit weighted definitions.
 #define WATERSWITCH_REGULAR_TASK_EVT       0x0001
-#define WATERSWITCH_MATCH_SERVICE_EVT       0x0002
+#define WATERSWITCH_MATCH_SERVICE_EVT       0x0004
+#define WATERSWITCH_VALVE_SERVICE_EVT       0x0008
 
 #if defined( IAR_ARMCM3_LM )
 #define WATERSWITCH_RTOS_MSG_EVT       0x0002
@@ -150,8 +154,11 @@ extern uint8 zclWATERSWITCH_OnOffSwitch;
 extern uint8  zclWATERSWITCH_OnOff;
 extern uint16  zclWATERSWITCH_Temp;
 extern uint16  zclWATERSWITCH_Occupancy;
-
+#if DEVICE_TYPE==WS_TEMP
+extern cId_t* zclWATERSWITCH_InClusterList;
+#else
 extern cId_t zclWATERSWITCH_InClusterList[];
+#endif
 extern cId_t zclWATERSWITCH_OutClusterList[];
 
 /*********************************************************************

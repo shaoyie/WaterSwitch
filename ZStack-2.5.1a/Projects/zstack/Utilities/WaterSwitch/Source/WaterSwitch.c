@@ -176,6 +176,7 @@ static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg );
 #ifdef ZCL_DISCOVER
 static uint8 zclWATERSWITCH_ProcessInDiscRspCmd( zclIncomingMsg_t *pInMsg );
 #endif
+static void zclWATERSWITCH_OnOffCB( uint8 cmd );
 
 // Local functions for setting reporting
 static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
@@ -213,7 +214,7 @@ static zclGeneral_AppCallbacks_t zclWATERSWITCH_CmdCallbacks =
   zclWATERSWITCH_BasicResetCB,     // Basic Cluster Reset command
   zclWATERSWITCH_IdentifyCB,       // Identify command
   zclWATERSWITCH_IdentifyQueryRspCB, // Identify Query Response command
-  NULL,                         // On / Off cluster command - not needed.
+  zclWATERSWITCH_OnOffCB,           // On / Off cluster command
   NULL,                         // Level Control Move to Level command
   NULL,                         // Level Control Move command
   NULL,                         // Level Control Step command
@@ -228,6 +229,9 @@ static zclGeneral_AppCallbacks_t zclWATERSWITCH_CmdCallbacks =
 
 #if defined( IAR_ARMCM3_LM )
 static void WaterSwitch_ProcessRtosMessage( void );
+#endif
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+static void StopValueOutput(void);
 #endif
 
 /*********************************************************************
@@ -468,6 +472,15 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     // return unprocessed events
     return (events ^ WATERSWITCH_MATCH_SERVICE_EVT);
   }
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+  if ( events & WATERSWITCH_VALVE_SERVICE_EVT )
+  {
+    //Delay for value control, stop the output driven
+    StopValueOutput();
+    // return unprocessed events
+    return (events ^ WATERSWITCH_VALVE_SERVICE_EVT);
+  }
+#endif
 #if defined( IAR_ARMCM3_LM )
   // Receive a message from the RTOS queue
   if ( events & WATERSWITCH_RTOS_MSG_EVT )
@@ -499,7 +512,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
 */
 static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
 {
-  uchar strTemp[30];
+  uchar strTemp[40];
   switch ( inMsg->clusterID )
   {
   case End_Device_Bind_rsp:
@@ -605,10 +618,16 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
         
         if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_TEMPERATURE_SENSOR){
           pAddr=&WaterSwitch_TempDstAddr;
+          sprintf(strTemp, "add:%x ep:%d is temp node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
+          HalUARTWrite(1, strTemp,strlen(strTemp));
         } else if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_PUMP){
           pAddr=&WaterSwitch_PumpAddr;
+          sprintf(strTemp, "add:%x ep:%d is pump node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
+          HalUARTWrite(1, strTemp,strlen(strTemp));
         } else if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_REMOTE_CONTROL){
           pAddr=&WaterSwitch_RemoteControlAddr;
+          sprintf(strTemp, "add:%x ep:%d is remote control\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
+          HalUARTWrite(1, strTemp,strlen(strTemp));
         }
         if(pAddr){
           //Record the device's addr info
@@ -1204,6 +1223,77 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
   return TRUE;
 }
 
+static void TurnOnOffValve(uint8 onoff){
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+  //Decide the direction
+  PUMP_DIRECTION=ACTIVE_HIGH(onoff);
+  //Output power
+  PUMP_POWER=1;
+  //Start timer to stop the valve driver
+  osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT );
+  osal_start_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT, WATERSWITCH_VALVE_TIMEOUT );    
+#endif
+}
+
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+static void StopValueOutput(void){
+  //Stop power output
+  PUMP_POWER=0;
+  //Stop direction output
+  PUMP_DIRECTION=0;
+}
+#endif
+
+/*********************************************************************
+ * @fn      zclSampleLight_OnOffCB
+ *
+ * @brief   Callback from the ZCL General Cluster Library when
+ *          it received an On/Off Command for this application.
+ *
+ * @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
+ *
+ * @return  none
+ */
+static void zclWATERSWITCH_OnOffCB( uint8 cmd )
+{
+#if DEVICE_TYPE==WS_COORDINATOR
+  
+#if 0
+  // Turn on
+  if ( cmd == COMMAND_ON )
+    zclSampleLight_OnOff = LIGHT_ON;
+
+  // Turn off
+  else if ( cmd == COMMAND_OFF )
+    zclSampleLight_OnOff = LIGHT_OFF;
+
+  // Toggle the light
+  else
+  {
+    if ( zclSampleLight_OnOff == LIGHT_OFF )
+      zclSampleLight_OnOff = LIGHT_ON;
+    else
+      zclSampleLight_OnOff = LIGHT_OFF;
+  }
+#endif
+#elif DEVICE_TYPE==WS_PUMP
+  // Turn on
+  if ( cmd == COMMAND_ON ) {
+    zclWATERSWITCH_OnOff = PUMP_ON;
+  }
+  // Turn off
+  else if ( cmd == COMMAND_OFF ){
+    zclWATERSWITCH_OnOff = PUMP_OFF;
+  }
+  // Toggle the light
+  else
+  {
+    //We don't have this case
+  }
+  TurnOnOffValve(zclWATERSWITCH_OnOff);
+#endif
+}
+
 #if defined( IAR_ARMCM3_LM )
 /*********************************************************************
 * @fn      WaterSwitch_ProcessRtosMessage
@@ -1268,17 +1358,11 @@ void ActiveEPReq(uint16 bindAddr){
 
 static void InitDevice(uint8 task_id){
   
+  WaterSwitch_InitIO();
   MT_UartInit ();
   MT_UartRegisterTaskID(task_id); 
   HalUARTWrite(1,"UartInit OK\n", sizeof("UartInit OK\n")); 
-#if DEVICE_TYPE==WS_COORDINATOR
-#elif DEVICE_TYPE==WS_PUMP
   
-#elif DEVICE_TYPE==WS_TEMP
-#elif DEVICE_TYPE==WS_GATEWAY
-#else
-  
-#endif
 }
 
 #if DEVICE_TYPE==WS_TEMP
@@ -1338,12 +1422,15 @@ static void RegularTask( void )
   tick++;
   
 #elif DEVICE_TYPE==WS_PUMP
+  //Send flow report
+  zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_USING_DETECT);
+  SendFlowReport();
 #elif DEVICE_TYPE==WS_TEMP
   
-#ifdef DEBUG
-  //Debug mode, send the raw ADC data  
   uint16 adcData[3];
   ReadAdcValues(adcData);
+#ifdef DEBUG
+  //Debug mode, send the raw ADC data  
   
   uchar strTemp[40];
   
@@ -1354,32 +1441,17 @@ static void RegularTask( void )
   zclWATERSWITCH_Temp = adcData[0];
   zclWATERSWITCH_Occupancy = adcData[1];
   zclWATERSWITCH_Flow =adcData[2];
+#else
+  
+  //Fill into the attribute
+  //zclWATERSWITCH_Temp = adcData[0];
+  //zclWATERSWITCH_Occupancy = adcData[1];
+  zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_ENTERING_DETECT);
+#endif
   //Send
   SendTempReport();
   SendOccupancyReport();
   SendFlowReport();
-
-//  
-//    if ( AF_DataRequest( &WaterSwitch_DstAddr, &WATERSWITCH_TestEp,
-//                      WATERSWITCH_CLUSTERID,
-//                      strlen(strTemp),
-//                      (uint8 *)strTemp,
-//                      &WaterSwitch_TransID,
-//                      AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
-//  if ( AF_DataRequest( &WaterSwitch_DstAddr, &WATERSWITCH_TestEp,
-//                      WATERSWITCH_CLUSTERID,
-//                      sizeof(adcData),
-//                      (uint8 *)adcData,
-//                      &WaterSwitch_TransID,
-//                      AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
-//  {
-//    // Successfully requested to be sent.
-//  }
-//  else
-//  {
-//    // Error occurred in request to send.
-//  }
-#endif
 #elif DEVICE_TYPE==WS_GATEWAY
 #else
 #endif

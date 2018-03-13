@@ -32,6 +32,20 @@ void WaterSwitch_InitIO(void){
   P2DIR|= (FIRE_SWITCH_BV);   /* Set pin direction to Output */
   
 #elif DEVICE_TYPE==WS_PUMP
+  //Input
+  /* configure tristates */
+  //3-state for input
+  //P1 Ports
+  P1INP |= (WATER_USING_DETECT_BV);
+  P1SEL &= ~(WATER_USING_DETECT_BV);    /* Set pin function to GPIO */
+  P1DIR &= ~(WATER_USING_DETECT_BV);    /* Set pin direction to Input */
+  
+  //Output
+  P2INP |= 1<<5;//pull-down for output
+  
+  P0INP &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /*pull-up/pull-down*/
+  P0SEL &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /* Set pin function to GPIO */
+  P0DIR|= (PUMP_POWER_BV|PUMP_DIRECTION_BV);   /* Set pin direction to Output */
 #elif DEVICE_TYPE==WS_TEMP
     //Input
   /* configure tristates */

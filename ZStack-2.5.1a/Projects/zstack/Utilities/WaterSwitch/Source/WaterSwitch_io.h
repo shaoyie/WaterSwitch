@@ -31,6 +31,16 @@
 #define FIRE_SWITCH_BV  BV(0)
 
 #elif DEVICE_TYPE==WS_PUMP
+//Input
+#define WATER_USING_DETECT  P1_3
+#define WATER_USING_DETECT_BV  BV(3)
+//Output
+#define PUMP_POWER  P0_1
+#define PUMP_POWER_BV BV(1)
+#define PUMP_DIRECTION  P0_2
+#define PUMP_DIRECTION_BV BV(2)
+
+
 #elif DEVICE_TYPE==WS_TEMP
 
 //Input
