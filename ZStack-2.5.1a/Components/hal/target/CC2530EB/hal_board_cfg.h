@@ -49,6 +49,7 @@
 #include "hal_mcu.h"
 #include "hal_defs.h"
 #include "hal_types.h"
+#include "WaterSwitch.h"
 
 /* ------------------------------------------------------------------------------------------------
  *                                       CC2590/CC2591 support
@@ -202,6 +203,7 @@
 #define HAL_NV_DMA_CH              0
 #define HAL_DMA_CH_RX              3
 #define HAL_DMA_CH_TX              4
+#define HAL_DMA_CH_ADC              2
 
 #define HAL_NV_DMA_GET_DESC()      HAL_DMA_GET_DESC0()
 #define HAL_NV_DMA_SET_ADDR(a)     HAL_DMA_SET_ADDR_DESC0((a))
@@ -314,17 +316,17 @@ extern void MAC_RfFrontendSetup(void);
   #define HAL_TURN_OFF_LED1()       st( LED1_SBIT = LED1_POLARITY (0); )
   #define HAL_TURN_OFF_LED2()       st( LED2_SBIT = LED2_POLARITY (0); )
   #define HAL_TURN_OFF_LED3()       st( LED3_SBIT = LED3_POLARITY (0); )
-  #define HAL_TURN_OFF_LED4()       st( LED4_SBIT = LED3_POLARITY (0); )
+  #define HAL_TURN_OFF_LED4()       st( LED4_SBIT = LED4_POLARITY (0); )
 
   #define HAL_TURN_ON_LED1()        st( LED1_SBIT = LED1_POLARITY (1); )
   #define HAL_TURN_ON_LED2()        st( LED2_SBIT = LED2_POLARITY (1); )
   #define HAL_TURN_ON_LED3()        st( LED3_SBIT = LED3_POLARITY (1); )
-  #define HAL_TURN_ON_LED4()        st( LED4_SBIT = LED3_POLARITY (1); )
+  #define HAL_TURN_ON_LED4()        st( LED4_SBIT = LED4_POLARITY (1); )
 
   #define HAL_TOGGLE_LED1()         st( if (LED1_SBIT) { LED1_SBIT = 0; } else { LED1_SBIT = 1;} )
   #define HAL_TOGGLE_LED2()         st( if (LED2_SBIT) { LED2_SBIT = 0; } else { LED2_SBIT = 1;} )
   #define HAL_TOGGLE_LED3()         st( if (LED3_SBIT) { LED3_SBIT = 0; } else { LED3_SBIT = 1;} )
-  #define HAL_TOGGLE_LED4()         st( if (LED4_SBIT) { LED3_SBIT = 0; } else { LED4_SBIT = 1;} )
+  #define HAL_TOGGLE_LED4()         st( if (LED4_SBIT) { LED4_SBIT = 0; } else { LED4_SBIT = 1;} )
 
   #define HAL_STATE_LED1()          (LED1_POLARITY (LED1_SBIT))
   #define HAL_STATE_LED2()          (LED2_POLARITY (LED2_SBIT))
@@ -417,7 +419,11 @@ st( \
 
 /* Set to TRUE enable ADC usage, FALSE disable it */
 #ifndef HAL_ADC
+#if (defined DEVICE_TYPE) && (DEVICE_TYPE==WS_TEMP)
 #define HAL_ADC TRUE
+#else
+#define HAL_ADC FALSE
+#endif
 #endif
 
 /* Set to TRUE enable DMA usage, FALSE disable it */

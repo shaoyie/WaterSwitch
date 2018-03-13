@@ -51,6 +51,8 @@ extern "C"
 #include "zcl.h"
 #include "zcl_ms.h"
 #include "ZComDef.h"
+  
+#define DEBUG
 
 /*********************************************************************
  * CONSTANTS
@@ -61,6 +63,8 @@ extern "C"
 #define WS_PUMP   2
 #define WS_TEMP   3
 #define WS_GATEWAY  4
+  
+#define WATERSWITCH_CLUSTERID 0xFC01  //For internal data transfer
   
 // These constants are only for example and should be changed to the
 // device's needs
@@ -81,7 +85,7 @@ extern "C"
   
 #elif DEVICE_TYPE==WS_TEMP
 #define WATERSWITCH_DEVICEID           ZCL_HA_DEVICEID_TEMPERATURE_SENSOR
-#define ZCLWATERSWITCH_MAX_INCLUSTERS        0
+#define ZCLWATERSWITCH_MAX_INCLUSTERS        1
 #define ZCLWATERSWITCH_MAX_OUTCLUSTERS       3
 #define WATERSWITCH_MAX_ATTRIBUTES        13
   

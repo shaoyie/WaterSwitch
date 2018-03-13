@@ -100,12 +100,12 @@ uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
 uint16 zclWATERSWITCH_IdentifyTime = 0;
 
 // The status value we care
-uint8  zclWATERSWITCH_OnOff = SALOR_OFF;
+uint8 zclWATERSWITCH_OnOff = SALOR_OFF;
 uint8 zclWATERSWITCH_OnOffSwitch = AUTO_CONTROL;
 
 uint16  zclWATERSWITCH_Temp = 0;
 uint16  zclWATERSWITCH_Occupancy = 0;
-uint8  zclWATERSWITCH_Flow = 0;
+uint16  zclWATERSWITCH_Flow = 0;
 
 /*********************************************************************
  * ATTRIBUTE DEFINITIONS - Uses REAL cluster IDs
@@ -255,7 +255,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
     ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT,
     { // Attribute record
       ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE,
-      ZCL_DATATYPE_UINT8,
+      ZCL_DATATYPE_UINT16,
       ACCESS_CONTROL_READ,
       (void *)&zclWATERSWITCH_Flow
     }
@@ -290,6 +290,7 @@ cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
 #elif DEVICE_TYPE==WS_TEMP
 cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
 {
+  ZCL_CLUSTER_ID_GEN_BASIC
 };
 
 cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =

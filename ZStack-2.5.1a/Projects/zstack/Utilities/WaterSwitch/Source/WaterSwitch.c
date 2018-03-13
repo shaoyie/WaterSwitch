@@ -73,6 +73,7 @@ SW4:  initiates a match description request
 #include "zcl_ha.h"
 
 #include "WaterSwitch.h"
+#include "WaterSwitch_io.h"
 #include "DebugTrace.h"
 
 #if !defined( WIN32 )
@@ -183,7 +184,7 @@ static void InitReportCmd(void);
 static void ActiveEPReq(uint16 bindAddr);
 static void InitDevice(uint8 task_id);
 
-static zclReportCmd_t *pOnOffReportCmd;      // report command structure
+static zclReportCmd_t *pReportCmd;      // report command structure
 //static zclReportCmd_t *pTempOccupReportCmd;      // report command structure
 static uint8 binding=0;
 
@@ -192,7 +193,18 @@ static uint8 device_Status = 0;
 static uint32 tick=0;
 static uint32 lastTempTick=0;
 static uint32 lastPumpTick=0;
+static uint16 waterEntering=0;
+static uint16 salorWaterUsing=0;
 #endif
+
+#if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_COORDINATOR
+extern uint16 zclWATERSWITCH_Temp;
+extern uint16 zclWATERSWITCH_Occupancy;
+#endif
+#if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_PUMP
+extern uint16 zclWATERSWITCH_Flow;
+#endif
+
 /*********************************************************************
 * ZCL General Profile Callback table
 */
@@ -294,17 +306,12 @@ void WaterSwitch_Init( uint8 task_id )
 }
 
 void InitReportCmd(){
-  int numOnOffAttr=1;
+  int numOfAttr=1;
   //Create the OnOff report command
-  pOnOffReportCmd = (zclReportCmd_t *)osal_mem_alloc( sizeof( zclReportCmd_t ) + ( numOnOffAttr * sizeof( zclReport_t ) ) );
-  if ( pOnOffReportCmd != NULL )
+  pReportCmd = (zclReportCmd_t *)osal_mem_alloc( sizeof( zclReportCmd_t ) + ( numOfAttr * sizeof( zclReport_t ) ) );
+  if ( pReportCmd != NULL )
   {
-    pOnOffReportCmd->numAttr = numOnOffAttr;
-    
-    // Set up the first attribute
-    pOnOffReportCmd->attrList[0].attrID = ATTRID_ON_OFF;
-    pOnOffReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT8;
-    pOnOffReportCmd->attrList[0].attrData = &zclWATERSWITCH_OnOff; 
+    pReportCmd->numAttr = numOfAttr;
   }
 }
 
@@ -523,7 +530,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
         if ( pRsp->status == ZSuccess && pRsp->cnt )
         {
           for(int i=0;i<pRsp->cnt;i++){
-            // Take the first endpoint, Can be changed to search through endpoints
+            //Search through endpoints
             sprintf(strTemp, "add:%x ep:%d\n\r", dstAddr.addr.shortAddr, pRsp->epList[i]);
             HalUARTWrite(1, strTemp,strlen(strTemp));
             if(pRsp->epList[i]>0){
@@ -628,12 +635,11 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
       
       osal_mem_free( pSimpleDescRsp );
     }
-  }
-  break;
+    break;
 #endif
-default:
-  break;
-}
+  default:
+    break;
+  }
 }
 
 /*********************************************************************
@@ -653,7 +659,6 @@ default:
 static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
 {
   zAddrType_t dstAddr;
-  HalUARTWrite(1,"Key pressed\n", sizeof("Key pressed\n")); 
   
   // Shift is used to make each button/switch dual purpose.
   if ( shift )
@@ -673,20 +678,20 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
   }
   else
   {
+    static uint on=0;
     if ( keys & HAL_KEY_SW_1 )
     {
-      // Since SW1 isn't used for anything else in this application...
-#if defined( SWITCH1_BIND )
-      // we can use SW1 to simulate SW2 for devices that only have one switch,
-      keys |= HAL_KEY_SW_2;
-#elif defined( SWITCH1_MATCH )
-      // or use SW1 to simulate SW4 for devices that only have one switch
-      keys |= HAL_KEY_SW_4;
-#endif
+      HalUARTWrite(1,"Btn 1 pressed\n\r", sizeof("Btn 1 pressed\n\r")); 
+      HalLedSet ( HAL_LED_1, on?HAL_LED_MODE_ON:HAL_LED_MODE_OFF );
+      on=!on;
     }
     
     if ( keys & HAL_KEY_SW_2 )
     {
+      HalUARTWrite(1,"Btn 2 pressed\n\r", sizeof("Btn 2 pressed\n\r")); 
+      HalLedSet ( HAL_LED_2, on?HAL_LED_MODE_ON:HAL_LED_MODE_OFF );
+      on=!on;
+#if 0
       HalLedSet ( HAL_LED_4, HAL_LED_MODE_OFF );
       
       // Initiate an End Device Bind Request for the mandatory endpoint
@@ -698,6 +703,7 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
                            0, NULL,   // No incoming clusters to bind
                            ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,
                            TRUE );
+#endif
     }
     
     if ( keys & HAL_KEY_SW_3 )
@@ -738,15 +744,8 @@ static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pkt )
 {
   switch ( pkt->clusterId )
   {
-#if 0
   case WATERSWITCH_CLUSTERID:
-    // "the" message
-#if defined( LCD_SUPPORTED )
-    HalLcdWriteScreen( (char*)pkt->cmd.Data, "rcvd" );
-#elif defined( WIN32 )
-    WPRINTSTR( pkt->cmd.Data );
-#endif
-#endif
+    HalUARTWrite(1, pkt->cmd.Data, pkt->cmd.DataLength); //输出接收到的数据 
     break;
   }
 }
@@ -1122,10 +1121,14 @@ static uint8 zclWATERSWITCH_ProcessInDiscRspCmd( zclIncomingMsg_t *pInMsg )
 */
 static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 {
+#if DEVICE_TYPE==WS_COORDINATOR
   zclReportCmd_t *reportCmd;
   zclReport_t *reportRec;
   uint8 i;
   uint8 *OnOffState;
+  uint16 *pdata;
+  
+  HalUARTWrite(1, "Rep ", 4);
   
   reportCmd = (zclReportCmd_t *)pInMsg->attrCmd;
   for (i = 0; i < reportCmd->numAttr; i++)
@@ -1133,6 +1136,42 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     // Device is notified of the latest values of the attribute of another device.
     reportRec = &(reportCmd->attrList[i]);
     
+    if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT && 
+       reportRec->attrID == ATTRID_MS_TEMPERATURE_MEASURED_VALUE){
+         HalUARTWrite(1, "1:", 2);
+         
+         pdata = (uint16 *)reportRec->attrData;
+         zclWATERSWITCH_Temp = *pdata;
+         
+       } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING && 
+       reportRec->attrID == ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY){
+         HalUARTWrite(1, "2:", 2);
+         
+         pdata = (uint16 *)reportRec->attrData;
+         zclWATERSWITCH_Occupancy = *pdata;
+         
+       } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT && 
+       reportRec->attrID == ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE){
+         HalUARTWrite(1, "3:", 2);
+         
+         pdata = (uint16 *)reportRec->attrData;
+         if(pInMsg->srcAddr.addr.shortAddr == WaterSwitch_TempDstAddr.addr.shortAddr){
+           //Temp node
+           waterEntering = *pdata;
+         } else if(pInMsg->srcAddr.addr.shortAddr == WaterSwitch_PumpAddr.addr.shortAddr){
+           //Pump node
+           salorWaterUsing = *pdata;
+         }
+         
+       }
+#ifdef DEBUG
+      uchar strTemp[40];
+  
+      sprintf(strTemp, "%u\n\r", *pdata);
+      HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
+#endif
+    
+#if 0  
     if ( reportRec->attrID == ATTRID_ON_OFF )
     {
       static uint8 DlvdCnt=0;
@@ -1151,8 +1190,7 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
         HalLcdWriteString("OFF", HAL_LCD_LINE_3);
 #endif //LCD_SUPPORTED 
     }
-    
-#if 0    
+      
     if(OnOffReportTimeoutPeriod)
     {
       //Reset the timer. Time out in ms so *1000 to get seconds     
@@ -1162,6 +1200,7 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     
 #endif
   }
+#endif
   return TRUE;
 }
 
@@ -1227,20 +1266,61 @@ void ActiveEPReq(uint16 bindAddr){
   
 }
 
-static void InitDevice(void){
+static void InitDevice(uint8 task_id){
   
   MT_UartInit ();
   MT_UartRegisterTaskID(task_id); 
   HalUARTWrite(1,"UartInit OK\n", sizeof("UartInit OK\n")); 
 #if DEVICE_TYPE==WS_COORDINATOR
 #elif DEVICE_TYPE==WS_PUMP
-
+  
 #elif DEVICE_TYPE==WS_TEMP
 #elif DEVICE_TYPE==WS_GATEWAY
 #else
-
+  
 #endif
 }
+
+#if DEVICE_TYPE==WS_TEMP
+static void SendTempReport(){ 
+    
+    // Set up the first attribute
+    pReportCmd->attrList[0].attrID = ATTRID_MS_TEMPERATURE_MEASURED_VALUE;
+    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Temp;
+    
+    //Send the report
+    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                       ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT, pReportCmd,
+                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+}
+static void SendOccupancyReport(){ 
+    
+    // Set up the first attribute
+    pReportCmd->attrList[0].attrID = ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY;
+    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Occupancy;
+    
+    //Send the report
+    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                       ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING, pReportCmd,
+                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+}
+#endif
+#if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_PUMP
+static void SendFlowReport(){ 
+    
+    // Set up the first attribute
+    pReportCmd->attrList[0].attrID = ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE;
+    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Flow;
+    
+    //Send the report
+    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                       ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT, pReportCmd,
+                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+}
+#endif
 
 /*********************************************************************
 * @fn      RegularTask
@@ -1251,6 +1331,7 @@ static void InitDevice(void){
 *
 * @return  none
 */
+extern char adcDataSel;
 static void RegularTask( void )
 {
 #if DEVICE_TYPE==WS_COORDINATOR
@@ -1259,25 +1340,48 @@ static void RegularTask( void )
 #elif DEVICE_TYPE==WS_PUMP
 #elif DEVICE_TYPE==WS_TEMP
   
+#ifdef DEBUG
+  //Debug mode, send the raw ADC data  
+  uint16 adcData[3];
+  ReadAdcValues(adcData);
+  
+  uchar strTemp[40];
+  
+  sprintf(strTemp, "Got data: %u, %u, %u pos:%d\n\r", adcData[0], adcData[1], adcData[2], adcDataSel);
+  HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
+  
+  //Fill into the attribute
+  zclWATERSWITCH_Temp = adcData[0];
+  zclWATERSWITCH_Occupancy = adcData[1];
+  zclWATERSWITCH_Flow =adcData[2];
+  //Send
+  SendTempReport();
+  SendOccupancyReport();
+  SendFlowReport();
+
+//  
+//    if ( AF_DataRequest( &WaterSwitch_DstAddr, &WATERSWITCH_TestEp,
+//                      WATERSWITCH_CLUSTERID,
+//                      strlen(strTemp),
+//                      (uint8 *)strTemp,
+//                      &WaterSwitch_TransID,
+//                      AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
+//  if ( AF_DataRequest( &WaterSwitch_DstAddr, &WATERSWITCH_TestEp,
+//                      WATERSWITCH_CLUSTERID,
+//                      sizeof(adcData),
+//                      (uint8 *)adcData,
+//                      &WaterSwitch_TransID,
+//                      AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
+//  {
+//    // Successfully requested to be sent.
+//  }
+//  else
+//  {
+//    // Error occurred in request to send.
+//  }
+#endif
 #elif DEVICE_TYPE==WS_GATEWAY
 #else
-#endif
-  
-#if 0
-  char theMessageData[] = "Hello World";
-  if ( AF_DataRequest( &WaterSwitch_DstAddr, &WaterSwitch_epDesc,
-                      WATERSWITCH_CLUSTERID,
-                      (byte)osal_strlen( theMessageData ) + 1,
-                      (byte *)&theMessageData,
-                      &WaterSwitch_TransID,
-                      AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS )
-  {
-    // Successfully requested to be sent.
-  }
-  else
-  {
-    // Error occurred in request to send.
-  }
 #endif
 }
 

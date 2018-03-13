@@ -22,7 +22,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -131,11 +131,6 @@ void HalDriverInit (void)
   #error "The hal timer driver module is removed."
 #endif
 
-  /* ADC */
-#if (defined HAL_ADC) && (HAL_ADC == TRUE)
-  HalAdcInit();
-#endif
-
   /* DMA */
 #if (defined HAL_DMA) && (HAL_DMA == TRUE)
   // Must be called before the init call to any module that uses DMA.
@@ -145,6 +140,12 @@ void HalDriverInit (void)
   /* AES */
 #if (defined HAL_AES) && (HAL_AES == TRUE)
   HalAesInit();
+#endif
+  
+//AES has impact to the ADC DMA
+  /* ADC */
+#if (defined HAL_ADC) && (HAL_ADC == TRUE)
+  HalAdcInit();
 #endif
 
   /* LCD */

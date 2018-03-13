@@ -22,7 +22,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -118,6 +118,11 @@ extern "C"
 extern void HalAdcInit ( void );
 
 /*
+ * Initialize ADC DMA
+ */
+extern void HalAdcDMAInit ( void );
+
+/*
  * Read value from a specified ADC Channel at the given resolution
  */
 extern uint16 HalAdcRead ( uint8 channel, uint8 resolution );
@@ -131,6 +136,12 @@ extern void HalAdcSetReference ( uint8 reference );
  * Check for minimum Vdd specified.
  */
 extern bool HalAdcCheckVdd(uint8 vdd);
+
+extern void ReadAdcValues(uint16 valueBuf[3]);
+
+extern void setDMATargetAddr(uint8* adcConfig);
+
+extern void HalADCIsrDMA(void);
 
 /**************************************************************************************************
 **************************************************************************************************/

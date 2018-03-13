@@ -3200,6 +3200,12 @@
     <file>
       <name>$PROJ_DIR$\..\Source\WaterSwitch_data.c</name>
     </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_io.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_io.h</name>
+    </file>
   </group>
   <group>
     <name>HAL</name>

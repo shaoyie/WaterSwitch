@@ -110,7 +110,7 @@
 
 /* SW_6 is at P0.1 */
 #define HAL_KEY_SW_6_PORT   P0
-#define HAL_KEY_SW_6_BIT    BV(1)
+#define HAL_KEY_SW_6_BIT    BV(6)
 #define HAL_KEY_SW_6_SEL    P0SEL
 #define HAL_KEY_SW_6_DIR    P0DIR
 
@@ -123,25 +123,25 @@
 #define HAL_KEY_SW_6_IEN      IEN1  /* CPU interrupt mask register */
 #define HAL_KEY_SW_6_IENBIT   BV(5) /* Mask bit for all of Port_0 */
 #define HAL_KEY_SW_6_ICTL     P0IEN /* Port Interrupt Control register */
-#define HAL_KEY_SW_6_ICTLBIT  BV(1) /* P0IEN - P0.1 enable/disable bit */
+#define HAL_KEY_SW_6_ICTLBIT  BV(6) /* P0IEN - P0.1 enable/disable bit */
 #define HAL_KEY_SW_6_PXIFG    P0IFG /* Interrupt flag at source */
 
 /* Joy stick move at P2.0 */
-#define HAL_KEY_JOY_MOVE_PORT   P2
-#define HAL_KEY_JOY_MOVE_BIT    BV(0)
-#define HAL_KEY_JOY_MOVE_SEL    P2SEL
-#define HAL_KEY_JOY_MOVE_DIR    P2DIR
+#define HAL_KEY_JOY_MOVE_PORT   P0
+#define HAL_KEY_JOY_MOVE_BIT    BV(7)
+#define HAL_KEY_JOY_MOVE_SEL    P0SEL
+#define HAL_KEY_JOY_MOVE_DIR    P0DIR
 
 /* edge interrupt */
-#define HAL_KEY_JOY_MOVE_EDGEBIT  BV(3)
+#define HAL_KEY_JOY_MOVE_EDGEBIT  BV(0)
 #define HAL_KEY_JOY_MOVE_EDGE     HAL_KEY_FALLING_EDGE
 
 /* Joy move interrupts */
-#define HAL_KEY_JOY_MOVE_IEN      IEN2  /* CPU interrupt mask register */
-#define HAL_KEY_JOY_MOVE_IENBIT   BV(1) /* Mask bit for all of Port_2 */
-#define HAL_KEY_JOY_MOVE_ICTL     P2IEN /* Port Interrupt Control register */
-#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(0) /* P2IENL - P2.0<->P2.3 enable/disable bit */
-#define HAL_KEY_JOY_MOVE_PXIFG    P2IFG /* Interrupt flag at source */
+#define HAL_KEY_JOY_MOVE_IEN      IEN1  /* CPU interrupt mask register */
+#define HAL_KEY_JOY_MOVE_IENBIT   BV(5) /* Mask bit for all of Port_0 */
+#define HAL_KEY_JOY_MOVE_ICTL     P0IEN /* Port Interrupt Control register */
+#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(7) /* P2IENL - P2.0<->P2.3 enable/disable bit */
+#define HAL_KEY_JOY_MOVE_PXIFG    P0IFG /* Interrupt flag at source */
 
 #define HAL_KEY_JOY_CHN   HAL_ADC_CHANNEL_6
 
@@ -327,11 +327,11 @@ void HalKeyPoll (void)
 */
   if (!HAL_PUSH_BUTTON2())//S0
   {
-    keys |= HAL_KEY_SW_1; 
+    keys |= HAL_KEY_SW_2; 
   }
   if (!HAL_PUSH_BUTTON1())//S1 
   {
-    keys |= HAL_KEY_SW_6; 
+    keys |= HAL_KEY_SW_1; 
   }
   
   if (!Hal_KeyIntEnable)
