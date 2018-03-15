@@ -184,18 +184,29 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg );
 static void InitReportCmd(void);
 static void ActiveEPReq(uint16 bindAddr);
 static void InitDevice(uint8 task_id);
+#if DEVICE_TYPE==WS_TEMP
+static void ProcessAdcBatchData(void);
+#endif
+
 
 static zclReportCmd_t *pReportCmd;      // report command structure
 //static zclReportCmd_t *pTempOccupReportCmd;      // report command structure
 static uint8 binding=0;
 
 #if DEVICE_TYPE==WS_COORDINATOR
-static uint8 device_Status = 0;
+static uint16 device_Status = 0;
 static uint32 tick=0;
 static uint32 lastTempTick=0;
 static uint32 lastPumpTick=0;
+static uint32 lastFireOnTick=0;
 static uint16 waterEntering=0;
 static uint16 salorWaterUsing=0;
+static uint8 fireTurnedOn=0;
+static uint8 fireUsing=0;
+static uint8 fireOperation=0;
+
+void HandelFireOperationEvents(void);
+void SelectWaterSupplier(uint8 supplier);
 #endif
 
 #if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_COORDINATOR
@@ -472,11 +483,30 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     // return unprocessed events
     return (events ^ WATERSWITCH_MATCH_SERVICE_EVT);
   }
+#if DEVICE_TYPE==WS_TEMP
+  if ( events & WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT )
+  {
+    //Match service request timeout, allow to match again
+    
+    ProcessAdcBatchData();
+    // return unprocessed events
+    return (events ^ WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT);
+  }
+#endif
 #if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
   if ( events & WATERSWITCH_VALVE_SERVICE_EVT )
   {
     //Delay for value control, stop the output driven
     StopValueOutput();
+    // return unprocessed events
+    return (events ^ WATERSWITCH_VALVE_SERVICE_EVT);
+  }
+#endif
+#if DEVICE_TYPE==WS_COORDINATOR
+  if ( events & WATERSWITCH_FIRE_OPERATION_EVT )
+  {
+    //Handel the fire operation remain things...release the keys
+    HandelFireOperationEvents();
     // return unprocessed events
     return (events ^ WATERSWITCH_VALVE_SERVICE_EVT);
   }
@@ -727,6 +757,12 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     
     if ( keys & HAL_KEY_SW_3 )
     {
+      HalUARTWrite(1,"Btn 3 pressed\n\r", sizeof("Btn 3 pressed\n\r")); 
+      //Fire is on
+      if(FIRE_ON_DETECT){
+        lastFireOnTick = tick;
+        fireTurnedOn = 1;
+      }
     }
     
     if ( keys & HAL_KEY_SW_4 )
@@ -1147,8 +1183,6 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
   uint8 *OnOffState;
   uint16 *pdata;
   
-  HalUARTWrite(1, "Rep ", 4);
-  
   reportCmd = (zclReportCmd_t *)pInMsg->attrCmd;
   for (i = 0; i < reportCmd->numAttr; i++)
   {
@@ -1157,21 +1191,22 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
     
     if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT && 
        reportRec->attrID == ATTRID_MS_TEMPERATURE_MEASURED_VALUE){
-         HalUARTWrite(1, "1:", 2);
+         HalUARTWrite(1, "1	", 2);
          
          pdata = (uint16 *)reportRec->attrData;
          zclWATERSWITCH_Temp = *pdata;
+         lastTempTick = tick;
          
        } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING && 
        reportRec->attrID == ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY){
-         HalUARTWrite(1, "2:", 2);
+         HalUARTWrite(1, "	2	", 3);
          
          pdata = (uint16 *)reportRec->attrData;
          zclWATERSWITCH_Occupancy = *pdata;
          
        } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT && 
        reportRec->attrID == ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE){
-         HalUARTWrite(1, "3:", 2);
+         HalUARTWrite(1, "	3	", 3);
          
          pdata = (uint16 *)reportRec->attrData;
          if(pInMsg->srcAddr.addr.shortAddr == WaterSwitch_TempDstAddr.addr.shortAddr){
@@ -1180,14 +1215,18 @@ static uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
          } else if(pInMsg->srcAddr.addr.shortAddr == WaterSwitch_PumpAddr.addr.shortAddr){
            //Pump node
            salorWaterUsing = *pdata;
+           lastPumpTick = tick;
          }
          
        }
 #ifdef DEBUG
       uchar strTemp[40];
   
-      sprintf(strTemp, "%u\n\r", *pdata);
+      sprintf(strTemp, "%u", *pdata);
       HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
+      if(pInMsg->clusterId==ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT){
+          HalUARTWrite(1, "\r\n", 2);
+      }
 #endif
     
 #if 0  
@@ -1256,6 +1295,10 @@ static void StopValueOutput(void){
  */
 static void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
+#ifdef DEBUG
+      uchar strTemp[40];
+#endif
+      
 #if DEVICE_TYPE==WS_COORDINATOR
   
 #if 0
@@ -1290,6 +1333,10 @@ static void zclWATERSWITCH_OnOffCB( uint8 cmd )
   {
     //We don't have this case
   }
+#ifdef DEBUG  
+  sprintf(strTemp, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
+  HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
   TurnOnOffValve(zclWATERSWITCH_OnOff);
 #endif
 }
@@ -1406,6 +1453,199 @@ static void SendFlowReport(){
 }
 #endif
 
+#if DEVICE_TYPE==WS_TEMP
+extern uint16 adcBuf[];
+static uint16 readIndex=0;
+static uint8 adcPending=0;
+static void ProcessAdcBatchData(void){
+  uchar strTemp[40];
+  if(readIndex<ADC_CAPTURE_COUNT){
+    zclWATERSWITCH_Temp = adcBuf[readIndex*3];
+    zclWATERSWITCH_Occupancy = adcBuf[readIndex*3+1];
+    zclWATERSWITCH_Flow =adcBuf[readIndex*3+2];
+    //Send
+    SendTempReport();
+    SendOccupancyReport();
+    SendFlowReport();
+    sprintf(strTemp, "Got data	%u	%u	%u	%d\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow, readIndex);
+    HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
+    readIndex++;
+    osal_set_event (WaterSwitch_TaskID, WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT);
+  } else {
+    readIndex = 0;
+  //end
+    zclWATERSWITCH_Temp = 999;
+    zclWATERSWITCH_Occupancy = 0;
+    zclWATERSWITCH_Flow = 888;
+    //Send
+    SendTempReport();
+    SendOccupancyReport();
+    SendFlowReport();
+    //Let the regular task do it
+    //Restart
+    adcPending=0;
+    //RestartAdcConvert();
+  }
+}
+#endif
+
+#if DEVICE_TYPE==WS_COORDINATOR
+//According to the report sending decide the nodes' status
+void CheckNodeStatus(){
+  
+  if(tick-lastTempTick>2){
+    //Temp node is not work
+    device_Status |= TEMP_ERROR;
+    device_Status &= ~TEMP_WORKING;
+  } else if(lastTempTick>0){
+    //Temp node is working
+    device_Status &= ~TEMP_ERROR;
+    device_Status |= TEMP_WORKING;
+  }
+  
+  if(tick-lastPumpTick>2){
+    //Temp node is not work
+    device_Status |= PUMP_ERROR;
+    device_Status &= ~PUMP_WORKING;
+  } else if(lastTempTick>0){
+    device_Status &= ~PUMP_ERROR;
+    device_Status |= PUMP_WORKING;
+  }
+}
+
+//Check the fire related status
+void CheckFireStatus(){
+  if(fireTurnedOn){
+    if(!FIRE_ON_DETECT && lastFireOnTick - tick>2){
+      //It's already turned off
+      fireTurnedOn = 0;
+    }
+  } else if(FIRE_ON_DETECT){
+    fireTurnedOn = 1;
+  }
+  fireUsing = FIRE_USING_DETECT;
+}
+
+//Based on the node status and policy to decide the new work mode
+uint8 DecideWorkMode(){
+  CheckNodeStatus();
+  CheckFireStatus();
+  
+  //Only in auto mode or pending status we need to change the work mode
+  if(zclWATERSWITCH_OnOffSwitch == AUTO_CONTROL || zclWATERSWITCH_OnOff == PENDING) {
+    //Check whether the solar is good for use
+    if(device_Status | PUMP_WORKING && device_Status | TEMP_WORKING){
+      if(zclWATERSWITCH_Temp>65 && zclWATERSWITCH_Occupancy >=3 && !fireUsing){
+        //Salor is high and user is not using fire
+        return SALOR_ON;
+      }
+      if(waterEntering && salorWaterUsing){
+        //Salor is entering water and user is using it, should use fire
+        return SALOR_OFF;
+      }
+      if(zclWATERSWITCH_Temp<65 || zclWATERSWITCH_Occupancy<=0){
+        //Too cold or too less water, use fire
+        return SALOR_OFF;
+      }
+      if(zclWATERSWITCH_OnOff==SALOR_ON){
+        //If it's already solar, remain it
+        return zclWATERSWITCH_OnOff;
+      }
+    }
+  } else {
+    //return the work mode as is
+    return zclWATERSWITCH_OnOff;
+  }
+  //default use fire
+  return SALOR_OFF;
+}
+
+
+void UpdateWorkMode(void){
+  uint8 workMode = DecideWorkMode();
+  SelectWaterSupplier(workMode);
+}
+
+void PressFireSwitch(){
+  fireOperation = 0;
+  FIRE_SWITCH = 1;
+  fireOperation |= KEY_FIRE_SWITCH;
+  osal_start_timerEx( WaterSwitch_TaskID,
+                               WATERSWITCH_FIRE_OPERATION_EVT,
+                               WATERSWITCH_PRESS_KEY_TIMEOUT );
+}
+
+void PressTempUp(){
+  fireOperation = 0;
+  FIRE_TEMP_UP = 1;
+  fireOperation |= KEY_FIRE_TEMP_UP;
+  osal_start_timerEx( WaterSwitch_TaskID,
+                               WATERSWITCH_FIRE_OPERATION_EVT,
+                               WATERSWITCH_PRESS_KEY_TIMEOUT );
+}
+
+//Free the keys when set is done, and check whether need to do it again
+void HandelFireOperationEvents(void){
+
+  if(fireOperation|KEY_FIRE_TEMP_UP){
+    FIRE_TEMP_UP=0;
+  }
+  if(fireOperation|KEY_FIRE_SWITCH){
+    FIRE_SWITCH=0;
+  }
+}
+
+//Turn on the fire & watering supplier
+void TurnOnFire(){
+}
+
+void SelectWaterSupplier(uint8 supplier){
+  if(zclWATERSWITCH_OnOff!=supplier){
+    //Changed, so we need to reset
+    zclWATERSWITCH_OnOff = supplier;
+    
+    //Set pump
+    if(device_Status | PUMP_WORKING){
+      if(zclWATERSWITCH_OnOff == SALOR_ON){
+        zclGeneral_SendOnOff_CmdOn( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+      } else {
+        zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+      }
+    }
+    if(zclWATERSWITCH_OnOff == SALOR_ON){
+      //Local valve should turn off
+      TurnOnOffValve(PUMP_OFF);
+    } else {
+      //Local valve should turn on
+      
+      //Set local/fire
+      if((!fireTurnedOn) &&(!fireUsing)){
+        //Fire is not turned on
+        TurnOnFire();
+      }
+    }
+  } else if(zclWATERSWITCH_OnOff == SALOR_OFF){
+    //Fire on, need to keep the fire on
+          //Set local/fire
+      if((!fireTurnedOn) &&(!fireUsing)){
+        //Fire is not turned on
+        TurnOnFire();
+      } else {
+        //Press the temp up button to keep the fire on
+      }
+  }
+}
+
+void ToggleWaterSupplier(uint8 supplier){
+}
+
+void SwitchWorkMode(uint8 workMode){
+}
+
+void ToggleWorkMode(){
+}
+#endif
+
 /*********************************************************************
 * @fn      RegularTask
 *
@@ -1420,13 +1660,22 @@ static void RegularTask( void )
 {
 #if DEVICE_TYPE==WS_COORDINATOR
   tick++;
+  //UpdateWorkMode();
+  
+  
   
 #elif DEVICE_TYPE==WS_PUMP
   //Send flow report
   zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_USING_DETECT);
   SendFlowReport();
 #elif DEVICE_TYPE==WS_TEMP
+  //Start ADC
+  if(adcPending==0){
+    adcPending=1;
+    RestartAdcConvert();
+  }
   
+#if 0
   uint16 adcData[3];
   ReadAdcValues(adcData);
 #ifdef DEBUG
@@ -1452,6 +1701,8 @@ static void RegularTask( void )
   SendTempReport();
   SendOccupancyReport();
   SendFlowReport();
+#endif
+  
 #elif DEVICE_TYPE==WS_GATEWAY
 #else
 #endif

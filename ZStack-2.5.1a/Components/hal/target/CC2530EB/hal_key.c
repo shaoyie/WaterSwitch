@@ -140,10 +140,20 @@
 #define HAL_KEY_JOY_MOVE_IEN      IEN1  /* CPU interrupt mask register */
 #define HAL_KEY_JOY_MOVE_IENBIT   BV(5) /* Mask bit for all of Port_0 */
 #define HAL_KEY_JOY_MOVE_ICTL     P0IEN /* Port Interrupt Control register */
-#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(7) /* P2IENL - P2.0<->P2.3 enable/disable bit */
+#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(7) /* P0IENL */
 #define HAL_KEY_JOY_MOVE_PXIFG    P0IFG /* Interrupt flag at source */
 
 #define HAL_KEY_JOY_CHN   HAL_ADC_CHANNEL_6
+
+#if DEVICE_TYPE==WS_COORDINATOR
+#define PUSH3_EDGEBIT  BV(0)
+#define PUSH3_EDGE     HAL_KEY_FALLING_EDGE
+#define PUSH3_IEN      IEN1  /* CPU interrupt mask register */
+#define PUSH3_IENBIT   BV(5) /* Mask bit for all of Port_0 */
+#define PUSH3_ICTL     P0IEN /* Port Interrupt Control register */
+#define PUSH3_ICTLBIT  BV(0) /* P0IENL */
+#define PUSH3_PXIFG    P0IFG /* Interrupt flag at source */
+#endif
 
 
 /**************************************************************************************************
@@ -191,7 +201,10 @@ void HalKeyInit( void )
 
   HAL_KEY_JOY_MOVE_SEL &= ~(HAL_KEY_JOY_MOVE_BIT); /* Set pin function to GPIO */
   HAL_KEY_JOY_MOVE_DIR &= ~(HAL_KEY_JOY_MOVE_BIT); /* Set pin direction to Input */
-
+#if DEVICE_TYPE==WS_COORDINATOR
+  PUSH3_SEL &= ~(PUSH3_BV); /* Set pin function to GPIO */
+  PUSH3_DIR &= ~(PUSH3_BV); /* Set pin direction to Input */
+#endif
 
   /* Initialize callback function */
   pHalKeyProcessFunction  = NULL;
@@ -259,6 +272,26 @@ void HalKeyConfig (bool interruptEnable, halKeyCBack_t cback)
     HAL_KEY_JOY_MOVE_ICTL |= HAL_KEY_JOY_MOVE_ICTLBIT;
     HAL_KEY_JOY_MOVE_IEN |= HAL_KEY_JOY_MOVE_IENBIT;
     HAL_KEY_JOY_MOVE_PXIFG = ~(HAL_KEY_JOY_MOVE_BIT);
+    
+    #if DEVICE_TYPE==WS_COORDINATOR
+        /* Rising/Falling edge configuratinn */
+
+    PUSH3_ICTL &= ~(PUSH3_EDGEBIT);    /* Clear the edge bit */
+    /* For falling edge, the bit must be set. */
+  #if (PUSH3_EDGE == HAL_KEY_FALLING_EDGE)
+    PUSH3_ICTL |= PUSH3_EDGEBIT;
+  #endif
+
+
+    /* Interrupt configuration:
+     * - Enable interrupt generation at the port
+     * - Enable CPU interrupt
+     * - Clear any pending interrupt
+     */
+    PUSH3_ICTL |= PUSH3_ICTLBIT;
+    PUSH3_IEN |= PUSH3_IENBIT;
+    PUSH3_PXIFG = ~(PUSH3_BV);
+#endif
 
 
     /* Do this only after the hal_key is configured - to work with sleep stuff */
@@ -333,6 +366,12 @@ void HalKeyPoll (void)
   {
     keys |= HAL_KEY_SW_1; 
   }
+#if DEVICE_TYPE==WS_COORDINATOR
+  if (!HAL_PUSH_BUTTON3())//S2
+  {
+    keys |= HAL_KEY_SW_3; 
+  }
+#endif
   
   if (!Hal_KeyIntEnable)
   {

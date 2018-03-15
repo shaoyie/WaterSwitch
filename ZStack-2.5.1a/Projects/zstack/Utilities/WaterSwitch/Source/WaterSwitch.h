@@ -57,7 +57,7 @@ extern "C"
 /*********************************************************************
  * CONSTANTS
  */
-#define DEVICE_TYPE   WS_PUMP
+#define DEVICE_TYPE   WS_COORDINATOR
 //Only choose one of the four
 #define WS_COORDINATOR  1
 #define WS_PUMP   2
@@ -101,11 +101,14 @@ extern "C"
 #define WATERSWITCH_VALVE_TIMEOUT   15000
   
 #define WATERSWITCH_DELAY_TIMEOUT   1000
+#define WATERSWITCH_PRESS_KEY_TIMEOUT   300
 
 // Application Events (OSAL) - These are bit weighted definitions.
-#define WATERSWITCH_REGULAR_TASK_EVT       0x0001
-#define WATERSWITCH_MATCH_SERVICE_EVT       0x0004
-#define WATERSWITCH_VALVE_SERVICE_EVT       0x0008
+#define WATERSWITCH_REGULAR_TASK_EVT       1
+#define WATERSWITCH_MATCH_SERVICE_EVT       (1<<2)
+#define WATERSWITCH_VALVE_SERVICE_EVT       (1<<3)
+#define WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT       (1<<4)
+#define WATERSWITCH_FIRE_OPERATION_EVT       (1<<5)
 
 #if defined( IAR_ARMCM3_LM )
 #define WATERSWITCH_RTOS_MSG_EVT       0x0002
@@ -116,17 +119,24 @@ extern "C"
   
 #define SALOR_OFF                       0x00
 #define SALOR_ON                        0x01
+#define PENDING                         0xff
   
 #define AUTO_CONTROL                    0x00
 #define MANUAL_CONTROL                  0x01
   
 #define TEMP_WORKING                    0x01
 #define PUMP_WORKING                    0x02
-#define TEMP_ERROR                      (1<<4)
-#define PUMP_ERROR                      (2<<4)
+#define TEMP_ERROR                      (1<<8)
+#define PUMP_ERROR                      (2<<8)
   
-#define ERROR_MASK                      0xf0
-#define WORKING_STATUS_MASK             0x0f
+#define ERROR_MASK                      0xff00
+#define WORKING_STATUS_MASK             0x00ff
+  
+#define ADC_CAPTURE_COUNT               200
+#define ADC_CHANNEL_COUNT               3
+  
+#define KEY_FIRE_SWITCH                 1
+#define KEY_FIRE_TEMP_UP                 1<<1
 
 /*********************************************************************
  * MACROS

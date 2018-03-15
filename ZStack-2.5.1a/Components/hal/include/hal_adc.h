@@ -137,11 +137,13 @@ extern void HalAdcSetReference ( uint8 reference );
  */
 extern bool HalAdcCheckVdd(uint8 vdd);
 
-extern void ReadAdcValues(uint16 valueBuf[3]);
+void ReadAdcValues(uint16 valueBuf[3]);
 
-extern void setDMATargetAddr(uint8* adcConfig);
+void setDMATargetAddr(uint8* adcConfig);
 
-extern void HalADCIsrDMA(void);
+void HalADCIsrDMA(void);
+
+void RestartAdcConvert(void);
 
 /**************************************************************************************************
 **************************************************************************************************/

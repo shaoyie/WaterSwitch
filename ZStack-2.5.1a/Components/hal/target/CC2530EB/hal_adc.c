@@ -83,6 +83,11 @@
 
 #if (HAL_ADC == TRUE)
 static uint8 adcRef;
+#endif
+
+//Single catch or not
+#if 0
+#if (HAL_ADC == TRUE)
 static uint16 adcData[6];
 char adcDataSel = 0;  //Decide the data to be written, read should happen on another half
 #endif
@@ -149,6 +154,7 @@ void StartAdcConvert(){
 #if (HAL_ADC == TRUE)
   APCFG |= 0x07;  //Analog port
   //ADCCON2 = 0x92; //AVDD5, 9bit, 0-2ch
+  //ADCCON2 = 0xA2; //AVDD5, 10bit, 0-2ch
   ADCCON2 = 0xB2; //AVDD5, 12bit, 0-2ch
   
   //ADCCON1 |= 0x30; //Manual start
@@ -189,6 +195,125 @@ void ReadAdcValues(uint16 valueBuf[3]){
   }
 #endif
 }
+#else
+//batch capture
+#if (HAL_ADC == TRUE)
+uint16 adcBuf[ADC_CHANNEL_COUNT*ADC_CAPTURE_COUNT];
+uint16 adcData[3];
+static uint16 writeIndex=0;
+#endif
+
+/**************************************************************************************************
+ * @fn      HalAdcInit
+ *
+ * @brief   Initialize ADC Service
+ *
+ * @param   None
+ *
+ * @return  None
+ **************************************************************************************************/
+void HalAdcInit (void)
+{
+#if (HAL_ADC == TRUE)
+  HalAdcDMAInit();
+  
+  adcRef = HAL_ADC_REF_VOLT;
+#endif
+}
+
+
+//According to adcDataSel decide the DMA target place
+void setDMATargetAddr(uint8* adcConfig){
+#if (HAL_ADC == TRUE)
+    adcConfig[2]=((uint16)adcData)>>8; //target addr h
+    adcConfig[3]=0xFF & ((uint16)adcData);  //target addr l
+#endif
+}
+
+void HalAdcDMAInit ( void ){
+#if (HAL_ADC == TRUE)
+  //DMA channel
+  byte* adcConfig = (byte*)HAL_DMA_GET_DESC1234(HAL_DMA_CH_ADC);
+  adcConfig[0]=0x70;  //src addr h
+  adcConfig[1]=0xba;  //src addr l
+  setDMATargetAddr(adcConfig);
+  adcConfig[4]=0; //Use LEN for transfer count
+  adcConfig[5]=3; //Transfer count 3 for 3 adc channels;
+  //adcConfig[6]=0x94;  //Word, single, ADC_CHALL as trigger
+  adcConfig[6]=0xD4;  //Word, repeat single, ADC_CHALL as trigger
+  //adcConfig[7]=0x19;  //Enable interrupt, mid priority
+  adcConfig[7]=0x1A;  //Enable interrupt, high priority
+  
+  //Enable DMA for ADC;
+  HAL_DMA_ARM_CH(HAL_DMA_CH_ADC);
+  
+  //The later DMA init will do the step below
+  //DMAIRQ For check and clear
+  //IEN1 |= 1;  //Enable IRQ
+#endif
+}
+
+//Start the ADC convert on the P0.0-P0.2
+void StartAdcConvert(){
+#if (HAL_ADC == TRUE)
+  APCFG |= 0x07;  //Analog port
+  ADCCON2 = 0x92; //AVDD5, 9bit, 0-2ch
+  //ADCCON2 = 0xA2; //AVDD5, 10bit, 0-2ch
+  //ADCCON2 = 0xB2; //AVDD5, 12bit, 0-2ch
+  
+  ADCCON1 |= 0x30; //Manual start
+  //ADCCON1 |= 0x40; //Start
+#endif
+}
+
+void RestartAdcConvert(){
+#if (HAL_ADC == TRUE)
+  //Enable DMA for ADC;
+  HAL_DMA_ARM_CH(HAL_DMA_CH_ADC);
+  ADCCON1 |= 0x40; //Start ADC
+#endif
+}
+
+extern byte WaterSwitch_TaskID;
+
+void HalADCIsrDMA(void)
+{
+  
+#if (HAL_ADC == TRUE)
+  HAL_DMA_CLEAR_IRQ(HAL_DMA_CH_ADC);
+#if 0
+  adcDataSel = !adcDataSel;
+  //Clear flags
+  //IRCON &= ~1;
+  //Set the target addr
+  setDMATargetAddr((byte*)HAL_DMA_GET_DESC1234(HAL_DMA_CH_ADC));
+  //Restart DMA
+  HAL_DMA_ARM_CH(HAL_DMA_CH_ADC);
+#endif
+  uint16 index=writeIndex*3;
+  adcBuf[index]=adcData[0];
+  adcBuf[index+1]=adcData[1];
+  adcBuf[index+2]=adcData[2];
+  writeIndex++;
+  if(writeIndex>=ADC_CAPTURE_COUNT){
+    //full
+    //Stop DMA
+    DMAARM |= ((0x01 << (HAL_DMA_CH_ADC))|(1<<7));
+    writeIndex = 0;
+    osal_set_event (WaterSwitch_TaskID, WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT);
+  } else {
+    //Trigger ADC, but if trigger by P2.0, then comment this line
+    ADCCON1 |= 0x40; //Start
+  }
+#endif
+}
+
+//Read out the 3 adc values
+void ReadAdcValues(uint16 valueBuf[3]){
+#if (HAL_ADC == TRUE)
+#endif
+}
+#endif
 
 /**************************************************************************************************
  * @fn      HalAdcRead

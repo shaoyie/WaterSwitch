@@ -161,6 +161,15 @@
 #define PUSH2_SBIT        P0_7
 #define PUSH2_POLARITY    ACTIVE_HIGH
 
+#if DEVICE_TYPE==WS_COORDINATOR
+#define PUSH3_PORT   P0
+#define PUSH3_SEL    P0SEL
+#define PUSH3_DIR    P0DIR
+#define PUSH3_BV          BV(0)
+#define PUSH3_SBIT        P0_0
+#define PUSH3_POLARITY    ACTIVE_HIGH
+#endif
+
 /* ------------------------------------------------------------------------------------------------
  *                         OSAL NV implemented by internal flash pages.
  * ------------------------------------------------------------------------------------------------
@@ -237,7 +246,37 @@ extern void MAC_RfFrontendSetup(void);
 
 /* ----------- Board Initialization ---------- */
 #if defined (HAL_BOARD_CC2530EB_REV17) && !defined (HAL_PA_LNA) && !defined (HAL_PA_LNA_CC2590)
-
+#if DEVICE_TYPE==WS_COORDINATOR
+#define HAL_BOARD_INIT()                                         \
+{                                                                \
+  uint16 i;                                                      \
+                                                                 \
+  SLEEPCMD &= ~OSC_PD;                       /* turn on 16MHz RC and 32MHz XOSC */                \
+  while (!(SLEEPSTA & XOSC_STB));            /* wait for 32MHz XOSC stable */                     \
+  asm("NOP");                                /* chip bug workaround */                            \
+  for (i=0; i<504; i++) asm("NOP");          /* Require 63us delay for all revs */                \
+  CLKCONCMD = (CLKCONCMD_32MHZ | OSC_32KHZ); /* Select 32MHz XOSC and the source for 32K clock */ \
+  while (CLKCONSTA != (CLKCONCMD_32MHZ | OSC_32KHZ)); /* Wait for the change to be effective */   \
+  SLEEPCMD |= OSC_PD;                        /* turn off 16MHz RC */                              \
+                                                                 \
+  /* Turn on cache prefetch mode */                              \
+  PREFETCH_ENABLE();                                             \
+                                                                 \
+  HAL_TURN_OFF_LED1();                                           \
+  LED1_DDR |= LED1_BV;                                           \
+  HAL_TURN_OFF_LED2();                                           \
+  LED2_DDR |= LED2_BV;                                           \
+  HAL_TURN_OFF_LED3();                                           \
+  LED3_DDR |= LED3_BV;                                           \
+  HAL_TURN_OFF_LED4();                                           \
+  LED4_DDR |= LED4_BV;                                           \
+                                                                 \
+  /* configure tristates */                                      \
+  P0INP |= PUSH1_BV;                                             \
+  P0INP |= PUSH2_BV;                                             \
+  P0INP |= PUSH3_BV;                                             \
+}
+#else
 #define HAL_BOARD_INIT()                                         \
 {                                                                \
   uint16 i;                                                      \
@@ -266,6 +305,7 @@ extern void MAC_RfFrontendSetup(void);
   P0INP |= PUSH1_BV;                                             \
   P0INP |= PUSH2_BV;                                             \
 }
+#endif
 
 #elif defined (HAL_BOARD_CC2530EB_REV13) || defined (HAL_PA_LNA) || defined (HAL_PA_LNA_CC2590)
 
@@ -305,7 +345,11 @@ extern void MAC_RfFrontendSetup(void);
 /* ----------- Push Buttons ---------- */
 #define HAL_PUSH_BUTTON1()        (PUSH1_POLARITY (PUSH1_SBIT))
 #define HAL_PUSH_BUTTON2()        (PUSH2_POLARITY (PUSH2_SBIT))
+#if DEVICE_TYPE==WS_COORDINATOR
+#define HAL_PUSH_BUTTON3()        (PUSH3_POLARITY (PUSH3_SBIT))
+#else
 #define HAL_PUSH_BUTTON3()        (0)
+#endif
 #define HAL_PUSH_BUTTON4()        (0)
 #define HAL_PUSH_BUTTON5()        (0)
 #define HAL_PUSH_BUTTON6()        (0)

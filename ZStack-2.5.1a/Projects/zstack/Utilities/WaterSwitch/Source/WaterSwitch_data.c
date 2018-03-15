@@ -100,7 +100,7 @@ uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
 uint16 zclWATERSWITCH_IdentifyTime = 0;
 
 // The status value we care
-uint8 zclWATERSWITCH_OnOff = SALOR_OFF;
+uint8 zclWATERSWITCH_OnOff = PENDING;
 uint8 zclWATERSWITCH_OnOffSwitch = AUTO_CONTROL;
 
 uint16  zclWATERSWITCH_Temp = 0;
