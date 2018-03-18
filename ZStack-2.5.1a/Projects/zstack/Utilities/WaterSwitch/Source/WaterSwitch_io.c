@@ -1,61 +1,36 @@
+#include <string.h>
+#include "WaterSwitch.h"
 #include "WaterSwitch_io.h"
+#include "MT_UART.h"
+#include "MT_APP.h"
+#include "MT.h"
 
-void WaterSwitch_InitIO(void){
-  
-#if DEVICE_TYPE==WS_COORDINATOR
-  
-  //Input
-  /* configure tristates */
-  //3-state for input
-  //P0 Ports
-  P0INP |= (FIRE_ON_DETECT_BV);
-  P0SEL &= ~(FIRE_ON_DETECT_BV);    /* Set pin function to GPIO */
-  P0DIR &= ~(FIRE_ON_DETECT_BV);    /* Set pin direction to Input */
-  //P1 Ports
-  P1INP |= (FIRE_USING_DETECT_BV);
-  P1SEL &= ~(FIRE_USING_DETECT_BV);    /* Set pin function to GPIO */
-  P1DIR &= ~(FIRE_USING_DETECT_BV);    /* Set pin direction to Input */
-  
-  //Output
-  P2INP |= 7<<5;//pull-down for output
-  
-  P0INP &= ~(FIRE_TEMP_UP_BV|PUMP_POWER_BV|PUMP_DIRECTION_BV);    /*pull-up/pull-down*/
-  P0SEL &= ~(FIRE_TEMP_UP_BV|PUMP_POWER_BV|PUMP_DIRECTION_BV);    /* Set pin function to GPIO */
-  P0DIR|= (FIRE_TEMP_UP_BV|PUMP_POWER_BV|PUMP_DIRECTION_BV);   /* Set pin direction to Output */
-  
-  P1INP &= ~(FIRE_TEMP_DOWN_BV);    /*pull-up/pull-down*/
-  P1SEL &= ~(FIRE_TEMP_DOWN_BV);    /* Set pin function to GPIO */
-  P1DIR|= (FIRE_TEMP_DOWN_BV);   /* Set pin direction to Output */
-  
-  P2INP &= ~(FIRE_SWITCH_BV);    /*pull-up/pull-down*/
-  P2SEL &= ~(FIRE_SWITCH_BV);    /* Set pin function to GPIO */
-  P2DIR|= (FIRE_SWITCH_BV);   /* Set pin direction to Output */
-  
-#elif DEVICE_TYPE==WS_PUMP
-  //Input
-  /* configure tristates */
-  //3-state for input
-  //P1 Ports
-  P1INP |= (WATER_USING_DETECT_BV);
-  P1SEL &= ~(WATER_USING_DETECT_BV);    /* Set pin function to GPIO */
-  P1DIR &= ~(WATER_USING_DETECT_BV);    /* Set pin direction to Input */
-  
-  //Output
-  P2INP |= 1<<5;//pull-down for output
-  
-  P0INP &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /*pull-up/pull-down*/
-  P0SEL &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /* Set pin function to GPIO */
-  P0DIR|= (PUMP_POWER_BV|PUMP_DIRECTION_BV);   /* Set pin direction to Output */
-#elif DEVICE_TYPE==WS_TEMP
-    //Input
-  /* configure tristates */
-  //3-state for input
-  //P1 Ports
-  P1INP |= (WATER_ENTERING_DETECT_BV);
-  P1SEL &= ~(WATER_ENTERING_DETECT_BV);    /* Set pin function to GPIO */
-  P1DIR &= ~(WATER_ENTERING_DETECT_BV);    /* Set pin direction to Input */
-  
-#elif DEVICE_TYPE==WS_GATEWAY
-#else
+
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+void TurnOnOffValve(uint8 onoff){
+#ifdef DEBUG
+      uchar strTemp[40];  
+      sprintf(strTemp, "Start drive valve\r\n");
+      HalUARTWrite(1, strTemp, strlen(strTemp));
 #endif
+  //Decide the direction
+  PUMP_DIRECTION=ACTIVE_HIGH(onoff);
+  //Output power
+  PUMP_POWER=1;
+  //Start timer to stop the valve driver
+  osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT );
+  osal_start_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT, WATERSWITCH_VALVE_TIMEOUT );  
+} 
+
+void StopValueOutput(void){
+#ifdef DEBUG
+      uchar strTemp[40];  
+      sprintf(strTemp, "Stop drive valve\r\n");
+      HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+  //Stop power output
+  PUMP_POWER=0;
+  //Stop direction output
+  PUMP_DIRECTION=0;
 }
+#endif

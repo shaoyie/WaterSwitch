@@ -57,6 +57,7 @@
 #include "hal_timer.h"
 #include "hal_key.h"
 #include "hal_led.h"
+#include "hal_adc.h"
 
 /* Allow access macRandomByte() */
 #include "mac_radio_defs.h"

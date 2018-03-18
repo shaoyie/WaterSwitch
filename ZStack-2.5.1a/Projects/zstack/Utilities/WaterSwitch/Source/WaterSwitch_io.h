@@ -5,7 +5,7 @@
 #include "hal_defs.h"
 #include "hal_types.h"
 
-#include "WaterSwitch.h"
+#include "hal_board_cfg.h"
 
 #define PORT_VALUE ACTIVE_HIGH
 
@@ -47,10 +47,26 @@
 #define WATER_ENTERING_DETECT  P1_3
 #define WATER_ENTERING_DETECT_BV  BV(3)
 
+//Input
+#define TEMP_DECT_PIN   P1_2
+#define TEMP_DECT_PIN_BV   BV(2)
+
+#define CAPTURE_VALUE_TOLERANCE   65535
+
+#define P0_DURATION 0
+#define P2_IN_DURATION 1
+#define P2_OUT_DURATION 2
+#define P1_DURATION 3
+
 #elif DEVICE_TYPE==WS_GATEWAY
 #else
 #endif
 
 void WaterSwitch_InitIO(void);
+
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
+void TurnOnOffValve(uint8 onoff);
+void StopValueOutput(void);
+#endif
 
 #endif

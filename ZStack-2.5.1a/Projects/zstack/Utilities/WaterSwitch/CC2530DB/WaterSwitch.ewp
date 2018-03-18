@@ -3198,6 +3198,12 @@
       <name>$PROJ_DIR$\..\Source\WaterSwitch.h</name>
     </file>
     <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_coor.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_ctrl.c</name>
+    </file>
+    <file>
       <name>$PROJ_DIR$\..\Source\WaterSwitch_data.c</name>
     </file>
     <file>
@@ -3205,6 +3211,15 @@
     </file>
     <file>
       <name>$PROJ_DIR$\..\Source\WaterSwitch_io.h</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_pump.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitch_temp.c</name>
+    </file>
+    <file>
+      <name>$PROJ_DIR$\..\Source\WaterSwitchDeviceType.h</name>
     </file>
   </group>
   <group>

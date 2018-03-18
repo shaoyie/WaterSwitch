@@ -289,6 +289,7 @@ extern halDMADesc_t dmaCh1234[4];
  */
 
 void HalDmaInit( void );
+void HalADCIsrDMA(void);
 
 #endif  // #if (defined HAL_DMA) && (HAL_DMA == TRUE)
 

@@ -49,7 +49,7 @@
 #include "hal_mcu.h"
 #include "hal_defs.h"
 #include "hal_types.h"
-#include "WaterSwitch.h"
+#include "WaterSwitchDeviceType.h"
 
 /* ------------------------------------------------------------------------------------------------
  *                                       CC2590/CC2591 support
@@ -463,7 +463,7 @@ st( \
 
 /* Set to TRUE enable ADC usage, FALSE disable it */
 #ifndef HAL_ADC
-#if (defined DEVICE_TYPE) && (DEVICE_TYPE==WS_TEMP)
+#if (defined DEVICE_TYPE) && (DEVICE_TYPE==WS_TEMP) && (defined USE_ADC)
 #define HAL_ADC TRUE
 #else
 #define HAL_ADC FALSE

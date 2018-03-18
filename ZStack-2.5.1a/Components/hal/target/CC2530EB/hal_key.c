@@ -108,6 +108,9 @@
 #define HAL_KEY_CPU_PORT_0_IF P0IF
 #define HAL_KEY_CPU_PORT_2_IF P2IF
 
+#define P0_IEN                IEN1   /* CPU interrupt mask register */
+#define P0_IEN_BIT            BV(5) /* Mask bit for all of Port_0 */
+
 /* SW_6 is at P0.1 */
 #define HAL_KEY_SW_6_PORT   P0
 #define HAL_KEY_SW_6_BIT    BV(6)
@@ -120,10 +123,10 @@
 
 
 /* SW_6 interrupts */
-#define HAL_KEY_SW_6_IEN      IEN1  /* CPU interrupt mask register */
-#define HAL_KEY_SW_6_IENBIT   BV(5) /* Mask bit for all of Port_0 */
-#define HAL_KEY_SW_6_ICTL     P0IEN /* Port Interrupt Control register */
-#define HAL_KEY_SW_6_ICTLBIT  BV(6) /* P0IEN - P0.1 enable/disable bit */
+#define HAL_KEY_SW_6_IEN      P0IEN /* Port Interrupt Control register */
+#define HAL_KEY_SW_6_IENBIT   BV(6) /* P0IEN - P0.6 enable/disable bit */
+#define HAL_KEY_SW_6_ICTL     PICTL
+#define HAL_KEY_SW_6_ICTLBIT  BV(0) /*Edge control for P0*/
 #define HAL_KEY_SW_6_PXIFG    P0IFG /* Interrupt flag at source */
 
 /* Joy stick move at P2.0 */
@@ -137,10 +140,10 @@
 #define HAL_KEY_JOY_MOVE_EDGE     HAL_KEY_FALLING_EDGE
 
 /* Joy move interrupts */
-#define HAL_KEY_JOY_MOVE_IEN      IEN1  /* CPU interrupt mask register */
-#define HAL_KEY_JOY_MOVE_IENBIT   BV(5) /* Mask bit for all of Port_0 */
-#define HAL_KEY_JOY_MOVE_ICTL     P0IEN /* Port Interrupt Control register */
-#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(7) /* P0IENL */
+#define HAL_KEY_JOY_MOVE_IEN      P0IEN  /* Port Interrupt Control register */
+#define HAL_KEY_JOY_MOVE_IENBIT   BV(7) /* P0IEN - P0.7 enable/disable bit */
+#define HAL_KEY_JOY_MOVE_ICTL     PICTL /* Port Interrupt Control register */
+#define HAL_KEY_JOY_MOVE_ICTLBIT  BV(0) /*Edge control for P0*/
 #define HAL_KEY_JOY_MOVE_PXIFG    P0IFG /* Interrupt flag at source */
 
 #define HAL_KEY_JOY_CHN   HAL_ADC_CHANNEL_6
@@ -148,10 +151,10 @@
 #if DEVICE_TYPE==WS_COORDINATOR
 #define PUSH3_EDGEBIT  BV(0)
 #define PUSH3_EDGE     HAL_KEY_FALLING_EDGE
-#define PUSH3_IEN      IEN1  /* CPU interrupt mask register */
-#define PUSH3_IENBIT   BV(5) /* Mask bit for all of Port_0 */
-#define PUSH3_ICTL     P0IEN /* Port Interrupt Control register */
-#define PUSH3_ICTLBIT  BV(0) /* P0IENL */
+#define PUSH3_IEN      P0IEN  /* CPU interrupt mask register */
+#define PUSH3_IENBIT   BV(0) /* P0IENL */
+#define PUSH3_ICTL     PICTL /* Port Interrupt Control register */
+#define PUSH3_ICTLBIT  BV(0) /*Edge control for P0*/
 #define PUSH3_PXIFG    P0IFG /* Interrupt flag at source */
 #endif
 
@@ -236,13 +239,13 @@ void HalKeyConfig (bool interruptEnable, halKeyCBack_t cback)
   if (Hal_KeyIntEnable)
   {
     /* Rising/Falling edge configuratinn */
+    P0_IEN|=P0_IEN_BIT;
 
     PICTL &= ~(HAL_KEY_SW_6_EDGEBIT);    /* Clear the edge bit */
     /* For falling edge, the bit must be set. */
   #if (HAL_KEY_SW_6_EDGE == HAL_KEY_FALLING_EDGE)
     PICTL |= HAL_KEY_SW_6_EDGEBIT;
   #endif
-
 
     /* Interrupt configuration:
      * - Enable interrupt generation at the port

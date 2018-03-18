@@ -95,6 +95,7 @@ const uint8 zclWATERSWITCH_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
 uint8 zclWATERSWITCH_LocationDescription[17] = { 16, ' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
 uint8 zclWATERSWITCH_PhysicalEnvironment = 0;
 uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
+uint16 device_Status = 0;
 
 // Identify Cluster
 uint16 zclWATERSWITCH_IdentifyTime = 0;
@@ -228,6 +229,16 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
       (void *)&zclWATERSWITCH_OnOffSwitch
     }
   },
+  // *** General Basic Cluster Attributes ***
+  {
+    ZCL_CLUSTER_ID_GEN_BASIC,
+    { // Attribute record
+      ATTRID_BASIC_ALARM_MASK,
+      ZCL_DATATYPE_UINT16,
+      (ACCESS_CONTROL_READ),
+      (void *)&device_Status
+    }
+  },
 #endif
 #if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_TEMP
   // *** Temprature Cluster Attributes ***
@@ -284,9 +295,7 @@ cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
 cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
 {
   ZCL_CLUSTER_ID_GEN_ON_OFF,
-  ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG,
-  ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT,
-  ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING
+  ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG
 };
 #elif DEVICE_TYPE==WS_PUMP
 cId_t zclWATERSWITCH_InClusterList[ZCLWATERSWITCH_MAX_INCLUSTERS] =
@@ -307,6 +316,14 @@ cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
   ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING,
   ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT
 };
+#elif DEVICE_TYPE==WS_GATEWAY
+cId_t* zclWATERSWITCH_InClusterList = NULL;
+
+cId_t zclWATERSWITCH_OutClusterList[ZCLWATERSWITCH_MAX_OUTCLUSTERS] =
+{
+  ZCL_CLUSTER_ID_GEN_ON_OFF,
+  ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG
+};
 #else
 
 #endif
@@ -319,7 +336,7 @@ SimpleDescriptionFormat_t WaterSwitch_epDesc =
   WATERSWITCH_DEVICE_VERSION,            //  int   AppDevVer:4;
   WATERSWITCH_FLAGS,                     //  int   AppFlags:4;
   ZCLWATERSWITCH_MAX_INCLUSTERS,         //  byte  AppNumInClusters;
-#if DEVICE_TYPE==WS_TEMP
+#if DEVICE_TYPE==WS_TEMP || DEVICE_TYPE==WS_GATEWAY
   NULL, //  byte *pAppInClusterList;
 #else
   (cId_t *)zclWATERSWITCH_InClusterList, //  byte *pAppInClusterList;
