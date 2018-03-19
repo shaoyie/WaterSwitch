@@ -40,11 +40,21 @@
 #define CMD1_WATER_SUPPLIER 4
 
 #if DEVICE_TYPE==WS_GATEWAY
-int pendingCmd = -1;
+uint8 targetWorkMode=0;
 
 void ReadAttributeForCmd(uint8 cmd1);
 
 void WaterSwitch_InitIO(void){
+}
+
+void CheckPendingTaskCB(){
+  //Has pending task
+  if(pendingTask & SET_WORKMODE){
+    //Send again
+    WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &targetWorkMode);
+    ReadAttributeForCmd(CMD1_WORK_MODE);
+    CheckPendingTask(SET_WORKMODE);
+  }
 }
 
 void HandelSerialData(mtOSALSerialData_t *pkt ){
@@ -69,12 +79,15 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
             //Read attribute to trigger the UI update
+            targetWorkMode=pkt->msg[MT_RPC_POS_DAT0];
             ReadAttributeForCmd(CMD1_WORK_MODE);
+            CheckPendingTask(SET_WORKMODE);
           }
           break;
         case CMD1_WATER_SUPPLIER:
+          zclGeneral_SendOnOff_CmdToggle( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
           break;
-        default:    
+        default:
           sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
           HalUARTWrite(1, strTemp, strlen(strTemp));
           break;
@@ -194,6 +207,12 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
         //temperature
         uint16 data=*((uint16 *)prsp->data);
         uint8 workmode=(uint8)data;
+        //Has pending task?
+        if(pendingTask & SET_WORKMODE){
+          if(workmode==targetWorkMode){
+            ClearPendingTask(SET_WORKMODE);
+          }
+        }
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_WORK_MODE, &workmode, sizeof(workmode));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_ON_OFF && prsp->attrID==ATTRID_ON_OFF){

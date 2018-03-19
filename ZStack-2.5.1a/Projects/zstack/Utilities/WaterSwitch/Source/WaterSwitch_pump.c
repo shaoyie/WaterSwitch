@@ -51,6 +51,9 @@ void WaterSwitch_InitIO(void){
   PUMP_DIRECTION = 0;
 }
 
+void CheckPendingTaskCB(){
+}
+
 /*********************************************************************
  * @fn      zclSampleLight_OnOffCB
  *
@@ -89,6 +92,7 @@ void zclWATERSWITCH_OnOffCB( uint8 cmd )
 
 void RegularTask( void )
 {
+  uchar strTemp[40];
   //Send flow report
   zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_USING_DETECT);
   SendFlowReport();

@@ -69,8 +69,9 @@ extern "C"
 /*
  * Task Initialization for the Generic Application
  */
-extern void WaterSwitch_Init( byte task_id );
+void WaterSwitch_Init( byte task_id );
 extern SimpleDescriptionFormat_t WaterSwitch_epDesc;
+extern SimpleDescriptionFormat_t WaterSwitch_custEpDesc;
 
 extern CONST zclAttrRec_t zclWATERSWITCH_Attrs[];
 /*
@@ -98,6 +99,7 @@ extern cId_t zclWATERSWITCH_InClusterList[];
 extern cId_t zclWATERSWITCH_OutClusterList[];
 
 extern byte bound;
+extern uint16 pendingTask;
 extern zclReportCmd_t *pReportCmd;
 
 #if DEVICE_TYPE==WS_COORDINATOR
@@ -130,6 +132,11 @@ void SendFlowReport();
 
 void WriteAttrbuite(uint16 clusterID, uint16 attrID, uint8  dataType, uint8* data);
 void ReadAttribute(uint16 clusterID, uint16 attrID);
+
+void AfSendData(uint16 shortAddr, uint8* data, uint16 length);
+void CheckPendingTask(uint16 task);
+void ClearPendingTask(uint16 task);
+void CheckPendingTaskCB();
 
 /*********************************************************************
 *********************************************************************/

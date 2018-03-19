@@ -345,6 +345,20 @@ SimpleDescriptionFormat_t WaterSwitch_epDesc =
   (cId_t *)zclWATERSWITCH_OutClusterList //  byte *pAppInClusterList;
 };
 
+
+SimpleDescriptionFormat_t WaterSwitch_custEpDesc =
+{
+  WATERSWITCH_CUSTOMIZED_ENDPOINT,                  //  int Endpoint;
+  WATERSWITCH_CUSTOMIZED_PROFID,                  //  uint16 AppProfId[2];
+  WATERSWITCH_CUSTOMIZED_DEVICEID,      //  uint16 AppDeviceId[2];
+  WATERSWITCH_DEVICE_VERSION,            //  int   AppDevVer:4;
+  WATERSWITCH_FLAGS,                     //  int   AppFlags:4;
+  0,         //  byte  AppNumInClusters;
+  NULL,
+  0,        //  byte  AppNumInClusters;
+  NULL //  byte *pAppInClusterList;
+};
+
 /*********************************************************************
  * GLOBAL FUNCTIONS
  */

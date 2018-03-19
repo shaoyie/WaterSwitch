@@ -1,7 +1,7 @@
 #ifndef WATERSWITCHDEVICETYPE_H
 #define WATERSWITCHDEVICETYPE_H
 
-#define DEVICE_TYPE   WS_TEMP
+#define DEVICE_TYPE   WS_GATEWAY
 //Only choose one of the four
 #define WS_COORDINATOR  1
 #define WS_PUMP   2
@@ -10,7 +10,7 @@
 
 #define DEBUG
 #define CAPTURE_RAW_DATA
-#define USE_ADC
+//#define USE_ADC
 
 /*********************************************************************
  * CONSTANTS
@@ -22,8 +22,11 @@
 // These constants are only for example and should be changed to the
 // device's needs
 #define WATERSWITCH_ENDPOINT           20
+#define WATERSWITCH_CUSTOMIZED_ENDPOINT           100
 
 #define WATERSWITCH_PROFID             ZCL_HA_PROFILE_ID //0x0104
+#define WATERSWITCH_CUSTOMIZED_PROFID             0xbf11
+#define WATERSWITCH_CUSTOMIZED_DEVICEID           5
   
 #if DEVICE_TYPE==WS_COORDINATOR
   
@@ -31,7 +34,7 @@
 #define ZCLWATERSWITCH_MAX_INCLUSTERS        5
 #define ZCLWATERSWITCH_MAX_OUTCLUSTERS      2
 #define WATERSWITCH_MAX_ATTRIBUTES        16
-  
+
 #elif DEVICE_TYPE==WS_PUMP
 #define WATERSWITCH_DEVICEID           ZCL_HA_DEVICEID_PUMP
 #define ZCLWATERSWITCH_MAX_INCLUSTERS        1
@@ -68,6 +71,11 @@
 #define WATERSWITCH_VALVE_SERVICE_EVT       (1<<3)
 #define WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT       (1<<4)
 #define WATERSWITCH_FIRE_OPERATION_EVT       (1<<5)
+#define WATERSWITCH_CHECK_PENDING_TASK_EVT       (1<<6)
+
+//The pending task that we need to check result
+#define TURN_ON_OFF_VALVE             1
+#define SET_WORKMODE                  1<<1
 
 #if defined( IAR_ARMCM3_LM )
 #define WATERSWITCH_RTOS_MSG_EVT       0x0002

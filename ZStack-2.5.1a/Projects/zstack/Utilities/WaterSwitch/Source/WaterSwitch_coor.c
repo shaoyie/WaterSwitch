@@ -82,6 +82,9 @@ void WaterSwitch_InitIO(void){
   
 }
 
+void CheckPendingTaskCB(){
+}
+
 /*********************************************************************
  * @fn      zclSampleLight_OnOffCB
  *

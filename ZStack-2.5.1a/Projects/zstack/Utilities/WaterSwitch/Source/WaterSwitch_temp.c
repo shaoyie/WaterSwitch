@@ -37,6 +37,8 @@ static uint16 readIndex=0;
 static uint8 adcPending=0;
 static int lastSentIndex=0;
 
+static uint16 rawdataWriteIndex=0;
+
 
 void WaterSwitch_InitIO(void){
   
@@ -51,21 +53,29 @@ void WaterSwitch_InitIO(void){
 
   //Not use ADC, then use timer
   //Config P1.2
+
   PERCFG |= (1<<6); //Use loc 2
   P1SEL &= ~(TEMP_DECT_PIN_BV);    //P1.2 use as GPIO
   P2SEL |= (1<<3);   //Timer1 has priority
   P1INP |= (TEMP_DECT_PIN_BV);    //3 state
   P1DIR &= ~(TEMP_DECT_PIN_BV); 
   
-  T1CTL =1 ;    //prescaler 1, free running
+  T1CTL = 5;    //prescaler 8, free running
+  //T1CTL = 1;    //prescaler 1, free running
   T1CCTL0 &= ~(1<<2);   //capture mode, capture on all edges
   T1CCTL0 |= (1<<6)|3;  //capture on all edges, interrupt enabled  
-  T1CNTH = 1;   //Write anything to init the channel 0
+  T1CNTL = 0xff;   //Write anything to init the channel 0
   
   T1IE = 1;     //Enable interrupt
 
 }
 
+void CheckPendingTaskCB(){
+}
+
+#ifdef CAPTURE_RAW_DATA
+static uint16 durRaw[200];
+#endif
 static uint16 durations[3][4];
 static uint16 validDuration[4];
 static uint8 writeIndex=0;
@@ -73,23 +83,83 @@ static uint8 typeIndex=0;
 static uint8 dataCount=0;
 static uint8 hasValidDuration=0;
 
-static uint8 lastDriveState=999;
+static uint8 lastDriveState=255;
 static uint16 lastTime=0;
+
+static uint32 lastValidTick = 0;
+
+void ProcessLineData(){
+  //A line full, process it
+  if(dataCount<3) {dataCount++;}
+  if(dataCount>=3){
+    //Has enough data to check whether we have valid data or not
+    uint8 hasInvalidData=0;
+    for(int i=P0_DURATION;i<=P1_DURATION;i++){
+      if(i==P2_OUT_DURATION){
+        //P2 out don't care
+        continue;
+      }
+      for(int j=0;j<2;j++){
+        uint16 deviation = durations[j][i]>durations[j+1][i]?durations[j][i]-durations[j+1][i]:durations[j+1][i]-durations[j][i];
+        //The data don't vary too much
+        if(deviation>CAPTURE_VALUE_TOLERANCE){
+          //Invalid data
+          hasInvalidData=1;
+          break;
+        }
+      }
+      if(hasInvalidData){
+        break;
+      }
+    }
+    if(!hasInvalidData){
+      //has valid data
+      if(!hasValidDuration){
+        hasValidDuration = 1;
+      }
+      lastValidTick = osal_GetSystemClock();
+#ifdef CAPTURE_RAW_DATA
+      //Take the last one
+      for(int i=P0_DURATION;i<=P1_DURATION;i++){
+        validDuration[i]=durations[writeIndex][i];
+      }
+#else
+      //Take the average value as the data
+      uint32 temp;
+      for(int i=P0_DURATION;i<=P1_DURATION;i++){
+        temp=0;
+        for(int j=0;j<3;j++){
+          temp+=durations[j][i];
+        }
+        validDuration[i]=temp/3;
+      }
+#endif
+    }
+  }  
+  //Move to new line
+  typeIndex = P0_DURATION;
+  writeIndex++;
+  if(writeIndex>=3){
+    writeIndex = 0;
+  }
+}
+
 #pragma vector = T1_VECTOR
 __interrupt void Timer1_ISR(void)
 {
   T1IF = 0;
   if(T1STAT&1){
     //The channel 0 captured something
-    T1STAT &= ~1;
+    //T1STAT &= ~1;
+    T1STAT = 0;
     
     uint16 timestamp = T1CC0H<<8|T1CC0L;
     uint8 state=TEMP_DECT_PIN;
-    if(state || lastDriveState==state || lastDriveState==999){
+    if(state || lastDriveState==state || lastDriveState==255){
       //Init, just record
       //Or it's high value
       //Or we lost one edge? So we cannot do correct calculation but just record it
-      lastDriveState = TEMP_DECT_PIN;
+      lastDriveState = state;
       lastTime = timestamp;
     } else {
       //We got a valid pulse
@@ -101,72 +171,43 @@ __interrupt void Timer1_ISR(void)
         duration = 65536 - lastTime + timestamp;
       }
       if(duration>0){
+#ifdef CAPTURE_RAW_DATA
+        if(rawdataWriteIndex<200){
+          durRaw[rawdataWriteIndex++]=duration;
+        }
+#endif
         //Valid duration
         if(typeIndex>P0_DURATION){
-          if(durations[writeIndex][P0_DURATION]<=duration){
+          if(durations[writeIndex][P0_DURATION]*1.2<=duration){
             //P0 should be the biggest
-            //Found a new bigger one, take it as P0
+            //Found a new bigger one which is bigger thnn origin P0's 120%, take it as P0
             typeIndex = P0_DURATION;
           }          
+        }
+        if(typeIndex==P1_DURATION){
+          //The P2_OUT_DURATION could be too small to catch, verify
+          if(duration>durations[writeIndex][P0_DURATION]*0.9){
+            //Bigger than origin P0's 90%, so New is P0
+            //The original P0 is also P0, so we missed the P2_OUT_DURATION
+            durations[writeIndex][P1_DURATION]=durations[writeIndex][P2_OUT_DURATION];
+            //Clear P2 out
+            durations[writeIndex][P2_OUT_DURATION]=0;
+            ProcessLineData();
+          } else {
+            //Just accept it
+          }
         }
         //Save to proper location
         durations[writeIndex][typeIndex++]=duration;
         if(typeIndex>P1_DURATION){
-          //A line full, process it
-          if(dataCount<3) {dataCount++;}
-          if(dataCount>=3){
-            //Has enough data to check whether we have valid data or not
-            uint8 hasInvalidData=0;
-            for(int i=P0_DURATION;i<=P1_DURATION;i++){
-              for(int j=0;j<2;j++){
-                uint16 deviation = durations[j][i]>durations[j+1][i]?durations[j][i]-durations[j+1][i]:durations[j+1][i]-durations[j][i];
-                //The data don't vary too much
-                if(deviation>CAPTURE_VALUE_TOLERANCE){
-                  //Invalid data
-                  hasInvalidData=1;
-                  break;
-                }
-              }
-              if(hasInvalidData){
-                break;
-              }
-            }
-            if(!hasInvalidData){
-              //has valid data
-              if(!hasValidDuration){
-                hasValidDuration = 1;
-              }
-#ifdef CAPTURE_RAW_DATA
-              //Take the last one
-              for(int i=P0_DURATION;i<=P1_DURATION;i++){
-                validDuration[i]=durations[writeIndex][i];
-              }
-#else
-              //Take the average value as the data
-              uint32 temp;
-              for(int i=P0_DURATION;i<=P1_DURATION;i++){
-                temp=0;
-                for(int j=0;j<3;j++){
-                  temp+=durations[j][i];
-                }
-                validDuration[i]=temp/3;
-              }
-#endif
-            }
-          }
-          //Move to new line
-          typeIndex = P0_DURATION;
-          writeIndex++;
-          if(writeIndex>=3){
-            writeIndex = 0;
-          }
+          ProcessLineData();
           
         }
       } else {
         //Wrong, try again
         typeIndex = P0_DURATION;
       }
-      lastDriveState = TEMP_DECT_PIN;
+      lastDriveState = state;
       lastTime = timestamp;
     }
   }
@@ -197,6 +238,7 @@ static void SendOccupancyReport(){
                        ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
 }
 
+#ifdef USE_ADC
 void ProcessAdcBatchData(void){
   
   uchar strTemp[100];
@@ -244,44 +286,81 @@ void ProcessAdcBatchData(void){
 #endif
 #endif
 }
+#endif
 
 void RegularTask( void )
 {
-#if 0//(HAL_ADC == TRUE)
+#if defined CAPTURE_RAW_DATA|| defined DEBUG
+  uchar strTemp[60];
+#endif
+#ifdef USE_ADC
   //Start ADC
   if(adcPending==0){
     adcPending=1;
     RestartAdcConvert();
   }
-#else
+  
   //uint16 adcData[3];
   //ReadAdcValues(adcData);
+#endif
+  
 #ifdef CAPTURE_RAW_DATA
-  //Debug mode, send the raw data  
   
-  uchar strTemp[40];
-  
-  
-  if(hasValidDuration){
-    //Fill into the attribute
-    zclWATERSWITCH_Temp = validDuration[P0_DURATION];
-    zclWATERSWITCH_Occupancy = validDuration[P2_IN_DURATION];
-    zclWATERSWITCH_Flow =validDuration[P1_DURATION];
+  if(rawdataWriteIndex>=200){
+    int i=0;
+    strTemp[0]=0;
+    for(int i=0;i<2;i++){
+      sprintf(strTemp, "Raw:	%u	%u	%u	%u\n\r", durRaw[i*4+readIndex+P0_DURATION], durRaw[i*4+readIndex+P2_IN_DURATION], durRaw[i*4+readIndex+P2_OUT_DURATION],durRaw[i*4+readIndex+P1_DURATION]);
+      AfSendData(0, strTemp, strlen(strTemp));
+    }
+    readIndex+=(i*4);
+    if(readIndex>=200){
+      rawdataWriteIndex = 0;
+      readIndex = 0;
+    }
   }
-  sprintf(strTemp, "Got data: %u, %u, %u, %u\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow, validDuration[P2_OUT_DURATION]);
-  HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
-#else
   
-  //Fill into the attribute
-  //zclWATERSWITCH_Temp = adcData[0];
-  //zclWATERSWITCH_Occupancy = adcData[1];
+  sprintf(strTemp, "Valid:	%u	%u	%u	%u\n\r", validDuration[P0_DURATION], validDuration[P2_IN_DURATION], validDuration[P2_OUT_DURATION],validDuration[P1_DURATION]);
+  AfSendData(0, strTemp, strlen(strTemp));
+#endif
+  
+  //Fill into the attribute    
+  if(hasValidDuration && osal_GetSystemClock() - lastValidTick <=1000){
+    float p0=validDuration[P0_DURATION];
+    float p1=validDuration[P1_DURATION];
+    float p2=validDuration[P2_IN_DURATION];
+    if(p0>0 && p1>0 && p2>0){
+      p1=p0/p1;
+      p2=p2/p0;
+      //Temp
+      //The formula need to adjust
+      zclWATERSWITCH_Temp = 36.526*p1-53.822;
+      //Water level
+      if(p2>WATER_LEVEL0){
+        zclWATERSWITCH_Occupancy = 0;
+      } else if(p2>WATER_LEVEL1){
+        zclWATERSWITCH_Occupancy = 1;
+      } else if(p2>WATER_LEVEL2){
+        zclWATERSWITCH_Occupancy = 2;
+      } else if(p2>WATER_LEVEL3){
+        zclWATERSWITCH_Occupancy = 3;
+      } else{
+        zclWATERSWITCH_Occupancy = 4;
+      }
+      //Send
+      SendTempReport();
+      SendOccupancyReport();
+    }
+  }
+  //Flow
   zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_ENTERING_DETECT);
-#endif
-  //Send
-  SendTempReport();
-  SendOccupancyReport();
   SendFlowReport();
+#ifdef DEBUG
+  //Debug mode, send the raw data    
+  sprintf(strTemp, "Got data: %u, %u, %u\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow);
+  HalUARTWrite(1, strTemp, strlen(strTemp)); 
 #endif
+  
 }
 
 /*********************************************************************

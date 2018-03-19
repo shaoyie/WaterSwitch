@@ -140,14 +140,15 @@ afAddrType_t WaterSwitch_RemoteControlAddr;
 #endif
 //Bound with the server
 byte bound=0;
+uint16 pendingTask=0;
 
 
 // Event Endpoint to allow SYS_APP_MSGs
-static endPointDesc_t WATERSWITCH_TestEp =
+static endPointDesc_t WATERSWITCH_CustomizedEp =
 {
-  100,                                 // Event endpoint
+  WATERSWITCH_CUSTOMIZED_ENDPOINT,                                 // Event endpoint
   &WaterSwitch_TaskID,
-  (SimpleDescriptionFormat_t *)NULL,  // No Simple description for this test endpoint
+  (SimpleDescriptionFormat_t *)&WaterSwitch_custEpDesc,  // No Simple description for this test endpoint
   (afNetworkLatencyReq_t)0            // No Network Latency req
 };
 
@@ -271,7 +272,7 @@ void WaterSwitch_Init( uint8 task_id )
   zcl_registerForMsg( WaterSwitch_TaskID );
   
   // Register the endpoint description with the AF
-  afRegister( &WATERSWITCH_TestEp );
+  afRegister( &WATERSWITCH_CustomizedEp );
   
   // Register for all key events - This app will handle all key events
   RegisterForKeys( WaterSwitch_TaskID );
@@ -407,8 +408,8 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
             dstAddr.addr.shortAddr = NWK_BROADCAST_SHORTADDR;
             ZDP_MatchDescReq( &dstAddr, NWK_BROADCAST_SHORTADDR,
                              WATERSWITCH_PROFID,
+                             ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,   // Server's input is my output
                              ZCLWATERSWITCH_MAX_INCLUSTERS, zclWATERSWITCH_InClusterList,
-                             ZCLWATERSWITCH_MAX_OUTCLUSTERS, zclWATERSWITCH_OutClusterList,   // No incoming clusters to bind
                              TRUE );
             //Avoid duplicate bind request
             binding = 1;
@@ -463,7 +464,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     // return unprocessed events
     return (events ^ WATERSWITCH_MATCH_SERVICE_EVT);
   }
-#if DEVICE_TYPE==WS_TEMP
+#if DEVICE_TYPE==WS_TEMP && defined USE_ADC
   if ( events & WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT )
   {
     //Match service request timeout, allow to match again
@@ -502,6 +503,14 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     return (events ^ WATERSWITCH_RTOS_MSG_EVT);
   }
 #endif
+  if ( events & WATERSWITCH_CHECK_PENDING_TASK_EVT){
+    //If has pending task
+    if(pendingTask){
+      CheckPendingTaskCB();
+    }
+    // return unprocessed events
+    return (events ^ WATERSWITCH_CHECK_PENDING_TASK_EVT);
+  }
   
   // Discard unknown events
   return 0;
@@ -772,7 +781,9 @@ static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pkt )
   switch ( pkt->clusterId )
   {
   case WATERSWITCH_CLUSTERID:
+#ifdef DEBUG
     HalUARTWrite(1, pkt->cmd.Data, pkt->cmd.DataLength); //输出接收到的数据 
+#endif
     break;
   }
 }
@@ -1162,12 +1173,12 @@ static void WaterSwitch_ProcessRtosMessage( void )
 
 static void InitDevice(uint8 task_id){
   
-  uchar strTemp[20];
+  //uchar strTemp[20];
   WaterSwitch_InitIO();
   MT_UartInit ();
   MT_UartRegisterTaskID(task_id); 
-  sprintf(strTemp, "UartInit OK\n\r");
-  HalUARTWrite(1,strTemp, strlen(strTemp)); 
+  //sprintf(strTemp, "UartInit OK\n\r");
+  //HalUARTWrite(1,strTemp, strlen(strTemp)); 
 }
 
 #if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_PUMP
@@ -1184,6 +1195,18 @@ void SendFlowReport(){
                        ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
 }
 #endif
+
+void CheckPendingTask(uint16 task){
+  pendingTask |= task;
+  osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_CHECK_PENDING_TASK_EVT );
+  osal_start_timerEx( WaterSwitch_TaskID,
+                     WATERSWITCH_CHECK_PENDING_TASK_EVT,
+                     WATERSWITCH_DELAY_TIMEOUT );
+}
+
+void ClearPendingTask(uint16 task){
+  pendingTask &= ~task;
+}
 
 
 /*********************************************************************
@@ -1230,6 +1253,21 @@ void ReadAttribute(uint16 clusterID, uint16 attrID){
     readCmd->attrID[0] = attrID;                // Attribute ID (see ZigBee Cluster Library spec)
     zcl_SendRead(WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, clusterID, readCmd, ZCL_FRAME_CLIENT_SERVER_DIR, TRUE, 0);  
     osal_mem_free( pBuf );
+  }
+}
+
+//The node send raw data to coordinator for debug purpose
+void AfSendData(uint16 shortAddr, uint8* data, uint16 length){
+  afAddrType_t dstAddr; 
+  dstAddr.addr.shortAddr = shortAddr;//0xFFFE; //bindAddr;
+  dstAddr.addrMode = afAddr16Bit;
+  dstAddr.endPoint = WATERSWITCH_CUSTOMIZED_ENDPOINT;
+  if ( AF_DataRequest( &dstAddr, &WATERSWITCH_CustomizedEp, WATERSWITCH_CLUSTERID, length, data, &WaterSwitch_TransID, AF_DISCV_ROUTE, AF_DEFAULT_RADIUS ) == afStatus_SUCCESS ) 
+  {
+  }
+  else
+  {
+    // Error occurred in request to send.
   }
 }
 

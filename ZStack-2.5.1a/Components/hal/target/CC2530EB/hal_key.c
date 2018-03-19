@@ -276,7 +276,7 @@ void HalKeyConfig (bool interruptEnable, halKeyCBack_t cback)
     HAL_KEY_JOY_MOVE_IEN |= HAL_KEY_JOY_MOVE_IENBIT;
     HAL_KEY_JOY_MOVE_PXIFG = ~(HAL_KEY_JOY_MOVE_BIT);
     
-    #if DEVICE_TYPE==WS_COORDINATOR
+#if DEVICE_TYPE==WS_COORDINATOR
         /* Rising/Falling edge configuratinn */
 
     PUSH3_ICTL &= ~(PUSH3_EDGEBIT);    /* Clear the edge bit */
