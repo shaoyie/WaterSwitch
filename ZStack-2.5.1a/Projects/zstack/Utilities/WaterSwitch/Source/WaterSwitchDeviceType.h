@@ -1,15 +1,15 @@
 #ifndef WATERSWITCHDEVICETYPE_H
 #define WATERSWITCHDEVICETYPE_H
 
-#define DEVICE_TYPE   WS_GATEWAY
+#define DEVICE_TYPE   WS_PUMP
 //Only choose one of the four
 #define WS_COORDINATOR  1
 #define WS_PUMP   2
 #define WS_TEMP   3
 #define WS_GATEWAY  4
 
-#define DEBUG
-#define CAPTURE_RAW_DATA
+//#define DEBUG
+//#define CAPTURE_RAW_DATA
 //#define USE_ADC
 
 /*********************************************************************
@@ -101,6 +101,9 @@
   
 #define KEY_FIRE_SWITCH                 1
 #define KEY_FIRE_TEMP_UP                 1<<1
+
+#define SALOR_SWITCH_TEMP               62
+#define ENV_TEMP_CALIBRATION               293   //K
 
 #define ADC_CAPTURE_COUNT               200
 #define ADC_CHANNEL_COUNT               3

@@ -84,6 +84,8 @@ extern byte WaterSwitch_TaskID;
 extern byte WaterSwitch_TransID;
 extern afAddrType_t WaterSwitch_DstAddr;
 extern uint16 device_Status;
+extern uint8 zclWATERSWITCH_PhysicalEnvironment;
+extern uint16 zclWATERSWITCH_IdentifyTime;
 extern uint8  zclWATERSWITCH_OnOff;
 extern uint8 zclWATERSWITCH_OnOffSwitch;
 extern uint8  zclWATERSWITCH_OnOff;
@@ -126,6 +128,7 @@ void UpdateLeds();
 #endif
 #if DEVICE_TYPE==WS_GATEWAY   
 void HandelSerialData(mtOSALSerialData_t *pkt );
+void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len);
 #endif
 
 void SendFlowReport();

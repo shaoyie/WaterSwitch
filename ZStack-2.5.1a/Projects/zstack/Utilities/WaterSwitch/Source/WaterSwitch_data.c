@@ -93,12 +93,12 @@ const uint8 zclWATERSWITCH_DateCode[] = { 16, '2','0','1','8','0','3','0','6',' 
 const uint8 zclWATERSWITCH_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
 
 uint8 zclWATERSWITCH_LocationDescription[17] = { 16, ' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
-uint8 zclWATERSWITCH_PhysicalEnvironment = 0;
+uint8 zclWATERSWITCH_PhysicalEnvironment = SALOR_SWITCH_TEMP; //Use as switch temp. In winter the temp will be 5 degrees higher
 uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
 uint16 device_Status = 0;
 
 // Identify Cluster
-uint16 zclWATERSWITCH_IdentifyTime = 0;
+uint16 zclWATERSWITCH_IdentifyTime = ENV_TEMP_CALIBRATION;
 
 // The status value we care
 uint8 zclWATERSWITCH_OnOff = PENDING;
@@ -178,7 +178,7 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
     }
   },
   {
-    ZCL_CLUSTER_ID_GEN_BASIC,
+    ZCL_CLUSTER_ID_GEN_BASIC, 
     { // Attribute record
       ATTRID_BASIC_PHYSICAL_ENV,
       ZCL_DATATYPE_UINT8,

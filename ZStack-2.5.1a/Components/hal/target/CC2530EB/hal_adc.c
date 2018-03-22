@@ -88,10 +88,9 @@ static uint8 adcRef;
 #endif
 
 //Single catch or not
-#if 0
+#if DEVICE_TYPE==WS_COORDINATOR
 #if (HAL_ADC == TRUE)
-static uint16 adcData[6];
-char adcDataSel = 0;  //Decide the data to be written, read should happen on another half
+static uint16 adcData = 0;
 #endif
 
 /**************************************************************************************************
@@ -105,96 +104,54 @@ char adcDataSel = 0;  //Decide the data to be written, read should happen on ano
  **************************************************************************************************/
 void HalAdcInit (void)
 {
-#if (HAL_ADC == TRUE)
-  HalAdcDMAInit();
-  
+#if (HAL_ADC == TRUE)  
   adcRef = HAL_ADC_REF_VOLT;
-#endif
-}
-
-
-//According to adcDataSel decide the DMA target place
-void setDMATargetAddr(uint8* adcConfig){
-#if (HAL_ADC == TRUE)
-  if(adcDataSel==0){
-    adcConfig[2]=((uint16)adcData)>>8; //target addr h
-    adcConfig[3]=0xFF & ((uint16)adcData);  //target addr l
-  } else {
-    adcConfig[2]=(((uint16)adcData)+6)>>8; //target addr h
-    adcConfig[3]=0xFF & (((uint16)adcData)+6);  //target addr l
-  }
-#endif
-}
-
-void HalAdcDMAInit ( void ){
-#if (HAL_ADC == TRUE)
-  //DMA0
-  byte* adcConfig = (byte*)HAL_DMA_GET_DESC1234(HAL_DMA_CH_ADC);
-  adcConfig[0]=0x70;  //src addr h
-  adcConfig[1]=0xba;  //src addr l
-  setDMATargetAddr(adcConfig);
-  adcConfig[4]=0; //Use LEN for transfer count
-  adcConfig[5]=3; //Transfer count 3 for 3 adc channels;
-  adcConfig[6]=0x94;  //Word, single, ADC_CHALL as trigger
-  adcConfig[7]=0x19;  //Enable interrupt, mid priority
-  
-  //Enable DMA for ADC;
-  HAL_DMA_ARM_CH(HAL_DMA_CH_ADC);
-  
-  //DMA0CFGH = ((int)adcConfig)>>8;
-  //DMA0CFGL = ((int)adcConfig) & 0xFF;
-  //DMAARM |= 1; //Enable DMA0;
-  
-  //The later DMA init will do the step below
-  //DMAIRQ For check and clear
-  //IEN1 |= 1;  //Enable IRQ
 #endif
 }
 
 //Start the ADC convert on the P0.0-P0.2
 void StartAdcConvert(){
 #if (HAL_ADC == TRUE)
-  APCFG |= 0x07;  //Analog port
+  ADCIF = 0;
+  TR0=1;    //Connect temp sensor
+  ATEST =1; //Enable temp sensor
+  //APCFG |= 0x07;  //Analog port
   //ADCCON2 = 0x92; //AVDD5, 9bit, 0-2ch
   //ADCCON2 = 0xA2; //AVDD5, 10bit, 0-2ch
-  ADCCON2 = 0xB2; //AVDD5, 12bit, 0-2ch
+  //ADCCON2 = 0xB2; //AVDD5, 12bit, 0-2ch
+  ADCCON3 = 0x3E; //Interal ref, 12bit, temp
   
-  //ADCCON1 |= 0x30; //Manual start
-  //ADCCON1 |= 0x40; //Start
+  ADCCON1 |= 0x30; //Manual start
+  ADCCON1 |= 0x40; //Start
   
   //In fact we may want to trigger by the up edge of P2.0
   //If so, comment the 2 lines above and uncomment the 4 lines below
-  P2INP |= 1; //3-state
-  P2SEL &= ~1;  //P2.0 as GPIO
-  P2DIR &= ~1; //P2.0 as input
-  ADCCON1 &= 0xCF;
+  //P2INP |= 1; //3-state
+  //P2SEL &= ~1;  //P2.0 as GPIO
+  //P2DIR &= ~1; //P2.0 as input
+  //ADCCON1 &= 0xCF;
 #endif
 }
 
-void HalADCIsrDMA(void)
-{
-  
+void RestartAdcConvert(){
 #if (HAL_ADC == TRUE)
-  HAL_DMA_CLEAR_IRQ(HAL_DMA_CH_ADC);
-  adcDataSel = !adcDataSel;
-  //Clear flags
-  //IRCON &= ~1;
-  //Set the target addr
-  setDMATargetAddr((byte*)HAL_DMA_GET_DESC1234(HAL_DMA_CH_ADC));
-  //Restart DMA
-  HAL_DMA_ARM_CH(HAL_DMA_CH_ADC);
-  //Trigger ADC, but if trigger by P2.0, then comment this line
-  //ADCCON1 |= 0x40; //Start
+  //Has conversion available
+  if(ADCCON1 & HAL_ADC_EOC){
+    //Read it first
+    ReadAdcValue();
+  }
+  StartAdcConvert(); //Start ADC
 #endif
 }
 
 //Read out the 3 adc values
-void ReadAdcValues(uint16 valueBuf[3]){
+uint16 ReadAdcValue(){
 #if (HAL_ADC == TRUE)
-  byte offset=3*(1-adcDataSel);    
-  for(int i=0;i<3;i++){
-    valueBuf[i] = adcData[i+offset];
+  if(ADCCON1 & HAL_ADC_EOC){
+    adcData = ADCL;
+    adcData |= ADCH<<8;
   }
+  return adcData;
 #endif
 }
 #else
@@ -385,8 +342,8 @@ uint16 HalAdcRead (uint8 channel, uint8 resolution)
   ADCCFG &= (adcChannel ^ 0xFF);
 
   /* Read the result */
-  reading = (int16) (ADCL);
-  reading |= (int16) (ADCH << 8);
+  reading = (uint16) (ADCL);
+  reading |= (uint16) (ADCH << 8);
 
   /* Treat small negative as 0 */
   if (reading < 0)

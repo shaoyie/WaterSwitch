@@ -353,7 +353,7 @@ void RegularTask( void )
     }
   }
   //Flow
-  zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_ENTERING_DETECT);
+  zclWATERSWITCH_Flow = ACTIVE_LOW(WATER_ENTERING_DETECT);
   SendFlowReport();
 #ifdef DEBUG
   //Debug mode, send the raw data    

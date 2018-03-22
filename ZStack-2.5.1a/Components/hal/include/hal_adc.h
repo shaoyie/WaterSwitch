@@ -137,7 +137,11 @@ extern void HalAdcSetReference ( uint8 reference );
  */
 extern bool HalAdcCheckVdd(uint8 vdd);
 
+#if DEVICE_TYPE==WS_COORDINATOR
+uint16 ReadAdcValue();
+#else
 void ReadAdcValues(uint16 valueBuf[3]);
+#endif
 
 void setDMATargetAddr(uint8* adcConfig);
 

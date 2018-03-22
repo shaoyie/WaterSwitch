@@ -83,7 +83,7 @@ void zclWATERSWITCH_OnOffCB( uint8 cmd )
   {
     //We don't have this case
   }
-#ifdef DEBUG  
+#ifdef DEBUG
   sprintf(strTemp, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
   HalUARTWrite(1, strTemp, strlen(strTemp));
 #endif

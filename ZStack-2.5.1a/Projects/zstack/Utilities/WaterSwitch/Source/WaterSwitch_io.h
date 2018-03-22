@@ -52,10 +52,10 @@
 #define TEMP_DECT_PIN_BV   BV(2)
 
 #define CAPTURE_VALUE_TOLERANCE   60
-#define WATER_LEVEL0   0.675
-#define WATER_LEVEL1   0.609
-#define WATER_LEVEL2   0.521
-#define WATER_LEVEL3   0.343
+#define WATER_LEVEL0   0.7
+#define WATER_LEVEL1   0.62
+#define WATER_LEVEL2   0.55
+#define WATER_LEVEL3   0.443
 
 #define P0_DURATION 0
 #define P2_IN_DURATION 1
@@ -63,6 +63,18 @@
 #define P1_DURATION 3
 
 #elif DEVICE_TYPE==WS_GATEWAY
+
+#define CMD0_READ 0
+#define CMD0_READ_RSP 1
+#define CMD0_WRITE 2
+#define CMD0_WRITE_RSP 3
+
+#define CMD1_TEMP  0
+#define CMD1_OCCUPANCY 1
+#define CMD1_DEVICE_STATUS 2
+#define CMD1_WORK_MODE 3
+#define CMD1_WATER_SUPPLIER 4
+#define CMD1_SWITCH_TEMP 5
 #else
 #endif
 

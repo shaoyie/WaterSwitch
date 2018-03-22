@@ -24,7 +24,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -1005,6 +1005,11 @@ uint8 osal_init_system( void )
   return ( SUCCESS );
 }
 
+void feeddog(){
+  WDCTL = 0xa0;
+  WDCTL = 0x50;
+}
+
 /*********************************************************************
  * @fn      osal_start_system
  *
@@ -1024,6 +1029,9 @@ void osal_start_system( void )
 #endif
   {
     osal_run_system();
+#ifdef WDT_IN_PM1
+    feeddog();
+#endif
   }
 }
 

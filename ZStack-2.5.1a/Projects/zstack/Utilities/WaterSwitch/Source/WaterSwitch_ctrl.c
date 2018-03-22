@@ -28,17 +28,6 @@
 #include "MT_APP.h"
 #include "MT.h"
 
-#define CMD0_READ 0
-#define CMD0_READ_RSP 1
-#define CMD0_WRITE 2
-#define CMD0_WRITE_RSP 3
-
-#define CMD1_TEMP  0
-#define CMD1_OCCUPANCY 1
-#define CMD1_DEVICE_STATUS 2
-#define CMD1_WORK_MODE 3
-#define CMD1_WATER_SUPPLIER 4
-
 #if DEVICE_TYPE==WS_GATEWAY
 uint8 targetWorkMode=0;
 
@@ -49,12 +38,103 @@ void WaterSwitch_InitIO(void){
 
 void CheckPendingTaskCB(){
   //Has pending task
+  //Set work mode
   if(pendingTask & SET_WORKMODE){
     //Send again
     WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &targetWorkMode);
-    ReadAttributeForCmd(CMD1_WORK_MODE);
     CheckPendingTask(SET_WORKMODE);
   }
+  
+  //Turn on/off valve
+  if(pendingTask & TURN_ON_OFF_VALVE){
+    //Send again
+    zclGeneral_SendOnOff_CmdToggle( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+    CheckPendingTask(TURN_ON_OFF_VALVE);
+  }
+}
+
+/*********************************************************************
+* @fn      zclWATERSWITCH_ProcessInWriteRspCmd
+*
+* @brief   Process the "Profile" Write Response Command
+*
+* @param   pInMsg - incoming message to process
+*
+* @return  none
+*/
+uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
+{
+  
+  //We only care the feedback when we have pending task
+  if(pendingTask & SET_WORKMODE){
+    zclWriteRspCmd_t *writeRspCmd;
+    uint8 i;
+#ifdef DEBUG
+    char strTemp[40];
+    sprintf(strTemp, "Got write attribute feedback\n\r");
+    HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+    writeRspCmd = (zclWriteRspCmd_t *)pInMsg->attrCmd;
+    for (i = 0; i < writeRspCmd->numAttr; i++)
+    {
+      // Notify the device of the results of the its original write attributes
+      // command.
+      if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG &&writeRspCmd->attrList[i].status == ZCL_STATUS_SUCCESS){
+        //Write success, clear the pending task sign
+        ClearPendingTask(SET_WORKMODE);
+        //Notify up level
+        //auto/manual work mode
+        SendSerialData(CMD0_WRITE_RSP, CMD1_WORK_MODE, &targetWorkMode, sizeof(targetWorkMode));
+#ifdef DEBUG
+        sprintf(strTemp, "Clear the pending task\n\r");
+        HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+      }
+    }
+  }
+  
+  return TRUE;
+}
+
+/*********************************************************************
+* @fn      zclWATERSWITCH_ProcessInReportCmd
+*
+* @brief   Process the "Profile" Report Command
+*
+* @param   pInMsg - incoming message to process
+*
+* @return  none
+*/
+uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
+{
+  zclReportCmd_t *reportCmd;
+  zclReport_t *reportRec;
+  uint8 i;
+  reportCmd = (zclReportCmd_t *)pInMsg->attrCmd;
+  for (i = 0; i < reportCmd->numAttr; i++)
+  {
+    // Device is notified of the latest values of the attribute of another device.
+    reportRec = &(reportCmd->attrList[i]);
+    
+    if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF && 
+       reportRec->attrID == ATTRID_ON_OFF)
+    {
+      
+      //salor or fire
+      uint8 supplier=*((uint8 *)reportRec->attrData);
+      //Report to the upper machine by UART
+      SendSerialData(CMD0_READ_RSP, CMD1_WATER_SUPPLIER, &supplier, sizeof(supplier));
+      
+    } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG && 
+              reportRec->attrID == ATTRID_ON_OFF_SWITCH_ACTIONS)
+    {
+      //auto/manual work mode
+      uint8 workmode=*((uint8 *)reportRec->attrData);
+      //Report to the upper machine by UART
+      SendSerialData(CMD0_READ_RSP, CMD1_WORK_MODE, &workmode, sizeof(workmode));
+    }
+  }
+  return TRUE;
 }
 
 void HandelSerialData(mtOSALSerialData_t *pkt ){
@@ -78,14 +158,23 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
             sprintf(strTemp, "Wrong cmd1 length\n\r");
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
-            //Read attribute to trigger the UI update
+            //Make sure the set is done
             targetWorkMode=pkt->msg[MT_RPC_POS_DAT0];
-            ReadAttributeForCmd(CMD1_WORK_MODE);
             CheckPendingTask(SET_WORKMODE);
+          }
+          break;
+        case CMD1_SWITCH_TEMP:
+          if(length!=1){
+            //error
+            sprintf(strTemp, "Wrong cmd1 length\n\r");
+          } else {
+            WriteAttrbuite(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
           }
           break;
         case CMD1_WATER_SUPPLIER:
           zclGeneral_SendOnOff_CmdToggle( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+            //Make sure the set is done
+          CheckPendingTask(TURN_ON_OFF_VALVE);
           break;
         default:
           sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
@@ -115,7 +204,6 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
 //Read the specific attribute from the coordinator
 void ReadAttributeForCmd(uint8 cmd1){
   uchar strTemp[40]; 
-  uint8 attrNum=1;
   switch(cmd1){
   case CMD1_TEMP:
     ReadAttribute(ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT, ATTRID_MS_TEMPERATURE_MEASURED_VALUE);
@@ -131,6 +219,9 @@ void ReadAttributeForCmd(uint8 cmd1){
     break;
   case CMD1_WATER_SUPPLIER:
     ReadAttribute(ZCL_CLUSTER_ID_GEN_ON_OFF, ATTRID_ON_OFF);
+    break;
+  case CMD1_SWITCH_TEMP:
+    ReadAttribute(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV);
     break;
   default:    
     sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
@@ -198,29 +289,26 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_TEMP, &temp, sizeof(temp));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING && prsp->attrID==ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY){
-        //temperature
+        //water level
         uint16 data=*((uint16 *)prsp->data);
         uint8 occ=(uint8)data;
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_OCCUPANCY, &occ, sizeof(occ));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG && prsp->attrID==ATTRID_ON_OFF_SWITCH_ACTIONS){
-        //temperature
-        uint16 data=*((uint16 *)prsp->data);
-        uint8 workmode=(uint8)data;
-        //Has pending task?
-        if(pendingTask & SET_WORKMODE){
-          if(workmode==targetWorkMode){
-            ClearPendingTask(SET_WORKMODE);
-          }
-        }
+        //auto/manual work mode
+        uint8 workmode=*(prsp->data);
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_WORK_MODE, &workmode, sizeof(workmode));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_ON_OFF && prsp->attrID==ATTRID_ON_OFF){
-        //temperature
-        uint16 data=*((uint16 *)prsp->data);
-        uint8 supplier=(uint8)data;
+        //salor or fire
+        uint8 supplier=*(prsp->data);
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_WATER_SUPPLIER, &supplier, sizeof(supplier));
+      } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_BASIC && prsp->attrID==ATTRID_BASIC_PHYSICAL_ENV){
+        //salor or fire
+        uint8 tempSwitch=*(prsp->data);
+        //Report to the upper machine by UART
+        SendSerialData(CMD0_READ_RSP, CMD1_SWITCH_TEMP, &tempSwitch, sizeof(tempSwitch));
       }
     }  else {
       //error

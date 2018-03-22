@@ -160,7 +160,7 @@ HAL_ISR_FUNCTION( halDmaIsr, DMA_VECTOR )
   }
 #endif // (defined HAL_IRGEN) && (HAL_IRGEN == TRUE)
   
-#if (HAL_ADC == TRUE)
+#if (HAL_ADC == TRUE) && (DEVICE_TYPE==WS_TEMP)
   if (HAL_DMA_CHECK_IRQ(HAL_DMA_CH_ADC)) //DMA for ADC
   {
     HalADCIsrDMA();

@@ -463,7 +463,7 @@ st( \
 
 /* Set to TRUE enable ADC usage, FALSE disable it */
 #ifndef HAL_ADC
-#if (defined DEVICE_TYPE) && (DEVICE_TYPE==WS_TEMP) && (defined USE_ADC)
+#if (defined DEVICE_TYPE) && (((DEVICE_TYPE==WS_TEMP) && (defined USE_ADC))||DEVICE_TYPE==WS_COORDINATOR)
 #define HAL_ADC TRUE
 #else
 #define HAL_ADC FALSE

@@ -23,6 +23,7 @@
 #include "hal_led.h"
 #include "hal_key.h"
 #include "hal_uart.h"
+#include "hal_adc.h"
 //#include "sapi.h"
 #include "MT_UART.h"
 #include "MT_APP.h"
@@ -41,8 +42,12 @@ uint8 fireTurnedOn=0;
 uint8 fireUsing=0;
 uint8 fireOperation=0;
 
+static int16 envTemp=0;
+
 void HandelFireOperationEvents(void);
 void SelectWaterSupplier(uint8 supplier);
+
+static void ReportStatus();
 
 
 void WaterSwitch_InitIO(void){
@@ -83,6 +88,16 @@ void WaterSwitch_InitIO(void){
 }
 
 void CheckPendingTaskCB(){
+  //Turn on/off valve
+  if(pendingTask & TURN_ON_OFF_VALVE){
+    //Send again
+    if(zclWATERSWITCH_OnOff == SALOR_ON){
+      zclGeneral_SendOnOff_CmdOn( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+    } else {
+      zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+    }
+    CheckPendingTask(TURN_ON_OFF_VALVE);
+  }
 }
 
 /*********************************************************************
@@ -98,32 +113,17 @@ void CheckPendingTaskCB(){
 void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
 #ifdef DEBUG
-      uchar strTemp[40];
+  uchar strTemp[40];
 #endif
   
-#if 0
-  // Turn on
-  if ( cmd == COMMAND_ON )
-    zclSampleLight_OnOff = LIGHT_ON;
-
-  // Turn off
-  else if ( cmd == COMMAND_OFF )
-    zclSampleLight_OnOff = LIGHT_OFF;
-
-  // Toggle the light
-  else
+  if( cmd == COMMAND_TOGGLE )
   {
-    if ( zclSampleLight_OnOff == LIGHT_OFF )
-      zclSampleLight_OnOff = LIGHT_ON;
-    else
-      zclSampleLight_OnOff = LIGHT_OFF;
+    ToggleWaterSupplier();
   }
-#endif
 #ifdef DEBUG  
-  sprintf(strTemp, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
+  sprintf(strTemp, "Salor: %d\r\n", zclWATERSWITCH_OnOff);
   HalUARTWrite(1, strTemp, strlen(strTemp));
 #endif
-  //TurnOnOffValve(zclWATERSWITCH_OnOff);
 }
 
 /*********************************************************************
@@ -208,7 +208,7 @@ void ActiveEPReq(uint16 bindAddr){
   dstAddr.addrMode = afAddr16Bit;
   
   //Get Request a device's endpoint list
-  HalUARTWrite(1,"ZDP_ActiveEPReq\n", sizeof("ZDP_ActiveEPReq\n")); 
+  HalUARTWrite(1,"ZDP_ActiveEPReq\n", strlen("ZDP_ActiveEPReq\n")); 
   ZDP_ActiveEPReq(&dstAddr, bindAddr, TRUE);
   
   // Send the message
@@ -253,16 +253,28 @@ void CheckFireStatus(){
   fireUsing = FIRE_USING_DETECT;
 }
 
+void GetEnvTemp(){
+  envTemp = (ReadAdcValue()>>4)/4.5-587.5 + zclWATERSWITCH_IdentifyTime;
+#ifdef DEBUG
+  uchar strTemp[40];
+  sprintf(strTemp, "Raw:	%u	EnvTemp:	%d\r\n", ReadAdcValue(), envTemp);
+  HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+}
+
 //Based on the node status and policy to decide the new work mode
 uint8 DecideWorkMode(){
   CheckNodeStatus();
   CheckFireStatus();
+  GetEnvTemp();
   
   //Only in auto mode or pending status we need to change the work mode
   if(zclWATERSWITCH_OnOffSwitch == AUTO_CONTROL || zclWATERSWITCH_OnOff == PENDING) {
     //Check whether the solar is good for use
     if((device_Status & PUMP_WORKING) && (device_Status & TEMP_WORKING)){
-      if(zclWATERSWITCH_Temp>=60 && zclWATERSWITCH_Occupancy >=3 && !fireUsing){
+      if(((zclWATERSWITCH_Temp>=zclWATERSWITCH_PhysicalEnvironment+5) //winter
+         ||(envTemp>=20 && zclWATERSWITCH_Temp>=zclWATERSWITCH_PhysicalEnvironment))  //summer
+         && zclWATERSWITCH_Occupancy >=3 && !fireUsing){
         //Salor is high and user is not using fire
         return SALOR_ON;
       }
@@ -270,7 +282,9 @@ uint8 DecideWorkMode(){
         //Salor is entering water and user is using it, should use fire
         return SALOR_OFF;
       }
-      if((zclWATERSWITCH_Temp<60 || zclWATERSWITCH_Occupancy<=1) && (!salorWaterUsing)){
+      if((zclWATERSWITCH_Temp<60 || (( envTemp< 20 && zclWATERSWITCH_Occupancy<=1) //winter
+                                     ||zclWATERSWITCH_Occupancy<=0)) //summer
+         && (!salorWaterUsing)){
         //Too cold or too less water, use fire
         return SALOR_OFF;
       }
@@ -292,16 +306,7 @@ uint8 DecideWorkMode(){
 
 static uint8 fireStatus = FIRE_STATE_IDLE;
 
-static void StopFireOperation(){
-  //Clear all current operations
-  osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_FIRE_OPERATION_EVT );
-  FIRE_SWITCH = 0;
-  FIRE_TEMP_UP = 0;
-  fireOperation = 0;
-}
-
 static void PressFireSwitch(){
-  StopFireOperation();
   FIRE_SWITCH = 1;
   fireOperation |= KEY_FIRE_SWITCH;
   osal_start_timerEx( WaterSwitch_TaskID,
@@ -315,7 +320,7 @@ static void PressFireSwitch(){
 }
 
 static void PressTempUpForTime(uint16 timeout){
-  StopFireOperation();
+  //Output
   FIRE_TEMP_UP = 1;
   fireOperation |= KEY_FIRE_TEMP_UP;
   osal_start_timerEx( WaterSwitch_TaskID,
@@ -330,8 +335,10 @@ static void PressTempUpForTime(uint16 timeout){
 
 //Short press
 static void PressTempUp(){
-  fireStatus = FIRE_STATE_IDLE;
-  PressTempUpForTime(WATERSWITCH_PRESS_KEY_TIMEOUT );
+  //Only allow to press temp up when has no other task
+  if(!fireOperation && fireStatus==FIRE_STATE_IDLE){
+    PressTempUpForTime(WATERSWITCH_PRESS_KEY_TIMEOUT );
+  }
 }
 
 //Press 15 seconds
@@ -375,6 +382,7 @@ void HandelFireOperationEvents(void){
       if(device_Status & PUMP_WORKING){
         //Turn off the salor pump
         zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+        CheckPendingTask(TURN_ON_OFF_VALVE);
       }
       fireStatus = FIRE_STATE_IDLE;
     }
@@ -398,21 +406,34 @@ static void TurnOnFire(){
   }
 }
 
+static void ResetOperationStatus(){
+  osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_FIRE_OPERATION_EVT );
+  FIRE_TEMP_UP=0;
+  FIRE_SWITCH = 0;
+  fireOperation = 0;
+  fireStatus = FIRE_STATE_IDLE;
+}
+
 //Apply the configuration for the given supplier
 void SelectWaterSupplier(uint8 supplier){
   if(zclWATERSWITCH_OnOff!=supplier){
     //Changed, so we need to reset
     zclWATERSWITCH_OnOff = supplier;
+
+    uchar strTemp[40];  
+    sprintf(strTemp, "Salor mode: %d\r\n", zclWATERSWITCH_OnOff);
+    HalUARTWrite(1, strTemp, strlen(strTemp));
+
     
+    //Clear runing task
+    ResetOperationStatus();
+      
     //Set pump
     if(device_Status & PUMP_WORKING){
       if(zclWATERSWITCH_OnOff == SALOR_ON){
         zclGeneral_SendOnOff_CmdOn( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
+        CheckPendingTask(TURN_ON_OFF_VALVE);
       }
-      //Turn off salor is at the same time as turn on the fire valve
-//      else {
-//        zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
-//      }
     }
     if(zclWATERSWITCH_OnOff == SALOR_ON){
       //Local valve should turn off
@@ -421,6 +442,8 @@ void SelectWaterSupplier(uint8 supplier){
       //Local valve should turn on
       TurnOnFire();
     }
+    //Report the status change
+    ReportStatus();
   } else if(zclWATERSWITCH_OnOff == SALOR_OFF){
     //Fire on, need to keep the fire on
     //Set local/fire
@@ -494,12 +517,40 @@ void UpdateLeds(){
   }
 }
 
+//Send the work mode and water supplier selection to the remote control
+static void ReportStatus(){ 
+  
+  //Already has remote control connected
+  if(WaterSwitch_RemoteControlAddr.addr.shortAddr!=0){
+    
+    // Set up the first attribute
+    pReportCmd->attrList[0].attrID = ATTRID_ON_OFF;
+    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_BOOLEAN;
+    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_OnOff;
+    
+    //Send the report
+    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_RemoteControlAddr,
+                      ZCL_CLUSTER_ID_GEN_ON_OFF, pReportCmd,
+                      ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+    //We can send 2 reports in one command. But to keep the API simple, let's do it twice
+    // Set up the first attribute
+    pReportCmd->attrList[0].attrID = ATTRID_ON_OFF_SWITCH_ACTIONS;
+    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT8;
+    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_OnOffSwitch;
+    
+    //Send the report
+    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_RemoteControlAddr,
+                      ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, pReportCmd,
+                      ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+  }
+}
+
 void RegularTask( void )
 {
   tick++;
-#ifndef CAPTURE_RAW_DATA
+  RestartAdcConvert();
   SelectWaterSupplier(DecideWorkMode());
   UpdateLeds();
-#endif
+
 }
 #endif

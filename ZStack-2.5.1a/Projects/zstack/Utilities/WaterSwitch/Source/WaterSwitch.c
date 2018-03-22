@@ -170,7 +170,7 @@ static void zclWATERSWITCH_ProcessIncomingMsg( zclIncomingMsg_t *msg );
 uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg );
 #endif
 #ifdef ZCL_WRITE
-static uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg );
+uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg );
 #endif
 #ifdef ZCL_REPORT
 static uint8 zclWATERSWITCH_ProcessInConfigReportCmd( zclIncomingMsg_t *pInMsg );
@@ -330,7 +330,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
   zAddrType_t dstAddr;
   uchar strTemp[30];
   (void)task_id;  // Intentionally unreferenced parameter
-  
+    
   if ( events & SYS_EVENT_MSG )
   {
     MSGpkt = (afIncomingMSGPacket_t *)osal_msg_receive( WaterSwitch_TaskID );
@@ -558,7 +558,6 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
     sprintf(strTemp, "Match_Desc_rsp\n");
     HalUARTWrite(1,strTemp, strlen(strTemp)); 
     binding = 0;
-    zAddrType_t dstAddr;
 
     ZDO_ActiveEndpointRsp_t *pRsp = ZDO_ParseEPListRsp( inMsg );
     if ( pRsp )
@@ -714,8 +713,10 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
   {
     if ( keys & HAL_KEY_SW_1 )
     {
+#ifdef DEBUG      
       sprintf(strTemp, "Btn 1 pressed\n\r");
       HalUARTWrite(1,strTemp, strlen(strTemp)); 
+#endif
 #if DEVICE_TYPE==WS_COORDINATOR
       ToggleWorkMode();
 #endif
@@ -723,8 +724,10 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     
     if ( keys & HAL_KEY_SW_2 )
     {
+#ifdef DEBUG   
       sprintf(strTemp, "Btn 2 pressed\n\r");
       HalUARTWrite(1,strTemp, strlen(strTemp)); 
+#endif
 #if DEVICE_TYPE==WS_COORDINATOR
       ToggleWaterSupplier();
 #endif
@@ -745,8 +748,10 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     
     if ( keys & HAL_KEY_SW_3 )
     {
+#ifdef DEBUG   
       sprintf(strTemp, "Btn 3 pressed\n\r");
       HalUARTWrite(1,strTemp, strlen(strTemp)); 
+#endif
 #if DEVICE_TYPE==WS_COORDINATOR
       //Fire is on
       if(FIRE_ON_DETECT){
@@ -932,7 +937,8 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
 *
 * @return  none
 */
-static uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
+#if DEVICE_TYPE!=WS_GATEWAY
+uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
 {
   zclWriteRspCmd_t *writeRspCmd;
   uint8 i;
@@ -946,7 +952,48 @@ static uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
   
   return TRUE;
 }
+#endif
 #endif // ZCL_WRITE
+
+
+/*********************************************************************
+* @fn      zclWATERSWITCH_ProcessInDefaultRspCmd
+*
+* @brief   Process the "Profile" Default Response Command
+*
+* @param   pInMsg - incoming message to process
+*
+* @return  none
+*/
+static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
+{
+#if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_GATEWAY
+  // Device is notified of the Default Response command.
+  //Has pending task?
+  if(pendingTask & TURN_ON_OFF_VALVE){
+    zclDefaultRspCmd_t *defaultRspCmd = (zclDefaultRspCmd_t *)pInMsg->attrCmd;
+#ifdef DEBUG
+    char strTemp[40];
+    sprintf(strTemp, "Got TURN_ON_OFF_VALVE feedback\n\r");
+    HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+    
+    if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF) {
+      
+#ifdef DEBUG
+      sprintf(strTemp, "Clear the pending task\n\r");
+      HalUARTWrite(1, strTemp, strlen(strTemp));
+#endif
+      ClearPendingTask(TURN_ON_OFF_VALVE);
+#if DEVICE_TYPE==WS_GATEWAY
+      //Report to the upper machine by UART
+      SendSerialData(CMD0_WRITE_RSP, CMD1_WATER_SUPPLIER, NULL, 0);
+#endif
+    }
+  }
+#endif
+  return TRUE;
+}
 
 #ifdef ZCL_REPORT
 /*********************************************************************
@@ -1070,23 +1117,6 @@ static uint8 zclWATERSWITCH_ProcessInConfigReportCmd( zclIncomingMsg_t *pInMsg )
 }
 #endif // ZCL_REPORT
 
-/*********************************************************************
-* @fn      zclWATERSWITCH_ProcessInDefaultRspCmd
-*
-* @brief   Process the "Profile" Default Response Command
-*
-* @param   pInMsg - incoming message to process
-*
-* @return  none
-*/
-static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
-{
-  // zclDefaultRspCmd_t *defaultRspCmd = (zclDefaultRspCmd_t *)pInMsg->attrCmd;
-  // Device is notified of the Default Response command.
-  (void)pInMsg;
-  return TRUE;
-}
-
 #ifdef ZCL_DISCOVER
 /*********************************************************************
 * @fn      zclWATERSWITCH_ProcessInDiscRspCmd
@@ -1121,7 +1151,7 @@ static uint8 zclWATERSWITCH_ProcessInDiscRspCmd( zclIncomingMsg_t *pInMsg )
 *
 * @return  none
 */
-#if DEVICE_TYPE!=WS_COORDINATOR
+#if DEVICE_TYPE==WS_PUMP || DEVICE_TYPE==WS_TEMP
 uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 {
   return TRUE;
