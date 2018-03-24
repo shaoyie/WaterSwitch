@@ -72,7 +72,7 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
 #ifdef DEBUG
     char strTemp[40];
     sprintf(strTemp, "Got write attribute feedback\n\r");
-    HalUARTWrite(1, strTemp, strlen(strTemp));
+    INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
     writeRspCmd = (zclWriteRspCmd_t *)pInMsg->attrCmd;
     for (i = 0; i < writeRspCmd->numAttr; i++)
@@ -87,7 +87,7 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
         SendSerialData(CMD0_WRITE_RSP, CMD1_WORK_MODE, &targetWorkMode, sizeof(targetWorkMode));
 #ifdef DEBUG
         sprintf(strTemp, "Clear the pending task\n\r");
-        HalUARTWrite(1, strTemp, strlen(strTemp));
+        INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
       }
     }
@@ -140,7 +140,6 @@ uint8 zclWATERSWITCH_ProcessInReportCmd( zclIncomingMsg_t *pInMsg )
 void HandelSerialData(mtOSALSerialData_t *pkt ){
   uint8 cmd0=pkt->msg[MT_RPC_POS_CMD0];
   uint8 cmd1=pkt->msg[MT_RPC_POS_CMD1];
-  uchar strTemp[40]; 
   uint8 length=pkt->msg[MT_RPC_POS_LEN]; 
   
   if(bound){
@@ -163,7 +162,7 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
             CheckPendingTask(SET_WORKMODE);
           }
           break;
-        case CMD1_SWITCH_TEMP:
+        case CMD1_SWITCH_OUTPUT:
           if(length!=1){
             //error
             sprintf(strTemp, "Wrong cmd1 length\n\r");
@@ -178,32 +177,31 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           break;
         default:
           sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
-          HalUARTWrite(1, strTemp, strlen(strTemp));
+          INFO_OUTPUT( strTemp, strlen(strTemp));
           break;
         }
       }
       break;
     default:    
       sprintf(strTemp, "Wrong cmd0 %x\n\r", cmd0);
-      HalUARTWrite(1, strTemp, strlen(strTemp));
+      INFO_OUTPUT( strTemp, strlen(strTemp));
       break;
     }
   } else {
     
     sprintf(strTemp, "Not bound with server yet\n\r");
-    HalUARTWrite(1, strTemp, strlen(strTemp));
+    INFO_OUTPUT( strTemp, strlen(strTemp));
   }
   
   
-  HalUARTWrite(1, "Uart got:", 9); 
-  HalUARTWrite(1, &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
+  INFO_OUTPUT( "Uart got:", 9); 
+  INFO_OUTPUT( &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
 }
 
 
 
 //Read the specific attribute from the coordinator
 void ReadAttributeForCmd(uint8 cmd1){
-  uchar strTemp[40]; 
   switch(cmd1){
   case CMD1_TEMP:
     ReadAttribute(ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT, ATTRID_MS_TEMPERATURE_MEASURED_VALUE);
@@ -220,12 +218,12 @@ void ReadAttributeForCmd(uint8 cmd1){
   case CMD1_WATER_SUPPLIER:
     ReadAttribute(ZCL_CLUSTER_ID_GEN_ON_OFF, ATTRID_ON_OFF);
     break;
-  case CMD1_SWITCH_TEMP:
+  case CMD1_SWITCH_OUTPUT:
     ReadAttribute(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV);
     break;
   default:    
     sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
-    HalUARTWrite(1, strTemp, strlen(strTemp));
+    INFO_OUTPUT( strTemp, strlen(strTemp));
     break;
   }
 }
@@ -248,7 +246,7 @@ void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len){
       pbuf[i++]=data[readIndex++];
     }
     pbuf[i]=MT_UartCalcFCS(&(pbuf[1]), len+3);
-    HalUARTWrite(1, pbuf, len+5); 
+    INFO_OUTPUT( pbuf, len+5); 
     osal_mem_free( pbuf );
   }
 }
@@ -308,7 +306,7 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
         //salor or fire
         uint8 tempSwitch=*(prsp->data);
         //Report to the upper machine by UART
-        SendSerialData(CMD0_READ_RSP, CMD1_SWITCH_TEMP, &tempSwitch, sizeof(tempSwitch));
+        SendSerialData(CMD0_READ_RSP, CMD1_SWITCH_OUTPUT, &tempSwitch, sizeof(tempSwitch));
       }
     }  else {
       //error

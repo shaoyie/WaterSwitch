@@ -168,6 +168,13 @@
 #define PUSH3_BV          BV(0)
 #define PUSH3_SBIT        P0_0
 #define PUSH3_POLARITY    ACTIVE_HIGH
+
+#define PUSH4_PORT   P1
+#define PUSH4_SEL    P1SEL
+#define PUSH4_DIR    P1DIR
+#define PUSH4_BV          BV(3)
+#define PUSH4_SBIT        P1_3
+#define PUSH4_POLARITY    ACTIVE_HIGH
 #endif
 
 /* ------------------------------------------------------------------------------------------------
@@ -347,10 +354,11 @@ extern void MAC_RfFrontendSetup(void);
 #define HAL_PUSH_BUTTON2()        (PUSH2_POLARITY (PUSH2_SBIT))
 #if DEVICE_TYPE==WS_COORDINATOR
 #define HAL_PUSH_BUTTON3()        (PUSH3_POLARITY (PUSH3_SBIT))
+#define HAL_PUSH_BUTTON4()        (PUSH4_POLARITY (PUSH4_SBIT))
 #else
 #define HAL_PUSH_BUTTON3()        (0)
-#endif
 #define HAL_PUSH_BUTTON4()        (0)
+#endif
 #define HAL_PUSH_BUTTON5()        (0)
 #define HAL_PUSH_BUTTON6()        (0)
 

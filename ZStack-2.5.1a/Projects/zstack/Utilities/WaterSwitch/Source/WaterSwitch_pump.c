@@ -66,9 +66,6 @@ void CheckPendingTaskCB(){
  */
 void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
-#ifdef DEBUG
-      uchar strTemp[40];
-#endif
    
   // Turn on
   if ( cmd == COMMAND_ON ) {
@@ -85,14 +82,13 @@ void zclWATERSWITCH_OnOffCB( uint8 cmd )
   }
 #ifdef DEBUG
   sprintf(strTemp, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
-  HalUARTWrite(1, strTemp, strlen(strTemp));
+  INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
   TurnOnOffValve(zclWATERSWITCH_OnOff);
 }
 
 void RegularTask( void )
 {
-  uchar strTemp[40];
   //Send flow report
   zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_USING_DETECT);
   SendFlowReport();

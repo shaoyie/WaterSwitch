@@ -9,14 +9,13 @@
 #if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
 void TurnOnOffValve(uint8 onoff){
 #ifdef DEBUG
-      uchar strTemp[40];  
       sprintf(strTemp, "Start drive valve\r\n");
-      HalUARTWrite(1, strTemp, strlen(strTemp));
+      INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
   //Decide the direction
   PUMP_DIRECTION=ACTIVE_HIGH(onoff);
   //Output power
-  PUMP_POWER=1;
+  PUMP_POWER=ACTIVE_HIGH(PUMP_ON);
   //Start timer to stop the valve driver
   osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT );
   osal_start_timerEx( WaterSwitch_TaskID, WATERSWITCH_VALVE_SERVICE_EVT, WATERSWITCH_VALVE_TIMEOUT );  
@@ -24,13 +23,12 @@ void TurnOnOffValve(uint8 onoff){
 
 void StopValueOutput(void){
 #ifdef DEBUG
-      uchar strTemp[40];  
       sprintf(strTemp, "Stop drive valve\r\n");
-      HalUARTWrite(1, strTemp, strlen(strTemp));
+      INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
   //Stop power output
-  PUMP_POWER=0;
+  PUMP_POWER=ACTIVE_HIGH(PUMP_OFF);
   //Stop direction output
-  PUMP_DIRECTION=0;
+  PUMP_DIRECTION=ACTIVE_HIGH(PUMP_OFF);
 }
 #endif

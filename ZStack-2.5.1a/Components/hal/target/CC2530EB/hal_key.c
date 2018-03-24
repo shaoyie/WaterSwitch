@@ -106,10 +106,14 @@
 
 /* CPU port interrupt */
 #define HAL_KEY_CPU_PORT_0_IF P0IF
+#define HAL_KEY_CPU_PORT_1_IF P1IF
 #define HAL_KEY_CPU_PORT_2_IF P2IF
 
 #define P0_IEN                IEN1   /* CPU interrupt mask register */
 #define P0_IEN_BIT            BV(5) /* Mask bit for all of Port_0 */
+
+#define P1_IEN                IEN2   /* CPU interrupt mask register */
+#define P1_IEN_BIT            BV(4) /* Mask bit for all of Port_0 */
 
 /* SW_6 is at P0.1 */
 #define HAL_KEY_SW_6_PORT   P0
@@ -119,7 +123,7 @@
 
 /* edge interrupt */
 #define HAL_KEY_SW_6_EDGEBIT  BV(0)
-#define HAL_KEY_SW_6_EDGE     HAL_KEY_FALLING_EDGE
+#define HAL_KEY_SW_6_EDGE     HAL_KEY_RISING_EDGE
 
 
 /* SW_6 interrupts */
@@ -137,7 +141,7 @@
 
 /* edge interrupt */
 #define HAL_KEY_JOY_MOVE_EDGEBIT  BV(0)
-#define HAL_KEY_JOY_MOVE_EDGE     HAL_KEY_FALLING_EDGE
+#define HAL_KEY_JOY_MOVE_EDGE     HAL_KEY_RISING_EDGE
 
 /* Joy move interrupts */
 #define HAL_KEY_JOY_MOVE_IEN      P0IEN  /* Port Interrupt Control register */
@@ -150,12 +154,20 @@
 
 #if DEVICE_TYPE==WS_COORDINATOR
 #define PUSH3_EDGEBIT  BV(0)
-#define PUSH3_EDGE     HAL_KEY_FALLING_EDGE
+#define PUSH3_EDGE     HAL_KEY_RISING_EDGE
 #define PUSH3_IEN      P0IEN  /* CPU interrupt mask register */
 #define PUSH3_IENBIT   BV(0) /* P0IENL */
 #define PUSH3_ICTL     PICTL /* Port Interrupt Control register */
 #define PUSH3_ICTLBIT  BV(0) /*Edge control for P0*/
 #define PUSH3_PXIFG    P0IFG /* Interrupt flag at source */
+
+#define PUSH4_EDGEBIT  BV(1)
+#define PUSH4_EDGE     HAL_KEY_RISING_EDGE
+#define PUSH4_IEN      P1IEN  /* CPU interrupt mask register */
+#define PUSH4_IENBIT   BV(3) /* P0IENL */
+#define PUSH4_ICTL     PICTL /* Port Interrupt Control register */
+#define PUSH4_ICTLBIT  BV(1) /*Edge control for P0*/
+#define PUSH4_PXIFG    P1IFG /* Interrupt flag at source */
 #endif
 
 
@@ -171,6 +183,10 @@ static uint8 halKeySavedKeys;     /* used to store previous key state in polling
 static halKeyCBack_t pHalKeyProcessFunction;
 static uint8 HalKeyConfigured;
 bool Hal_KeyIntEnable;            /* interrupt enable/disable flag */
+#if DEVICE_TYPE==WS_COORDINATOR
+uint32 p0_0_time=0;
+uint32 p1_3_time=0;
+#endif
 
 /**************************************************************************************************
  *                                        FUNCTIONS - Local
@@ -207,6 +223,8 @@ void HalKeyInit( void )
 #if DEVICE_TYPE==WS_COORDINATOR
   PUSH3_SEL &= ~(PUSH3_BV); /* Set pin function to GPIO */
   PUSH3_DIR &= ~(PUSH3_BV); /* Set pin direction to Input */
+  PUSH4_SEL &= ~(PUSH4_BV); /* Set pin function to GPIO */
+  PUSH4_DIR &= ~(PUSH4_BV); /* Set pin direction to Input */
 #endif
 
   /* Initialize callback function */
@@ -238,8 +256,9 @@ void HalKeyConfig (bool interruptEnable, halKeyCBack_t cback)
   /* Determine if interrupt is enable or not */
   if (Hal_KeyIntEnable)
   {
-    /* Rising/Falling edge configuratinn */
+    /* P0/P1 interrupt enable */
     P0_IEN|=P0_IEN_BIT;
+    P1_IEN|=P1_IEN_BIT;
 
     PICTL &= ~(HAL_KEY_SW_6_EDGEBIT);    /* Clear the edge bit */
     /* For falling edge, the bit must be set. */
@@ -369,10 +388,14 @@ void HalKeyPoll (void)
   {
     keys |= HAL_KEY_SW_1; 
   }
-#if DEVICE_TYPE==WS_COORDINATOR
+#if 0
   if (!HAL_PUSH_BUTTON3())//S2
   {
     keys |= HAL_KEY_SW_3; 
+  }
+  if (!HAL_PUSH_BUTTON4())//S3
+  {
+    keys |= HAL_KEY_SW_4; 
   }
 #endif
   
@@ -477,6 +500,21 @@ void halProcessKeyInterrupt (void)
     HAL_KEY_JOY_MOVE_PXIFG = ~(HAL_KEY_JOY_MOVE_BIT); /* Clear Interrupt Flag */
     valid = TRUE;
   }
+#if DEVICE_TYPE==WS_COORDINATOR
+  if (PUSH3_PXIFG & PUSH3_SBIT)  /* Interrupt Flag has been set */
+  {
+    PUSH3_PXIFG = ~(PUSH3_SBIT); /* Clear Interrupt Flag */
+    //Record the trigger time
+    p0_0_time=osal_GetSystemClock();
+  }
+  
+  if (PUSH4_PXIFG & PUSH4_SBIT)  /* Interrupt Flag has been set */
+  {
+    PUSH4_PXIFG = ~(PUSH4_SBIT); /* Clear Interrupt Flag */
+    //Record the trigger time
+    p1_3_time=osal_GetSystemClock();
+  }
+#endif
 
   if (valid)
   {
@@ -527,7 +565,11 @@ uint8 HalKeyExitSleep ( void )
  **************************************************************************************************/
 HAL_ISR_FUNCTION( halKeyPort0Isr, P0INT_VECTOR )
 {
-  if (HAL_KEY_SW_6_PXIFG & HAL_KEY_SW_6_BIT)
+  if (HAL_KEY_SW_6_PXIFG & (HAL_KEY_SW_6_BIT | HAL_KEY_JOY_MOVE_BIT
+#if DEVICE_TYPE==WS_COORDINATOR
+                             | PUSH3_BV
+#endif
+                            ))
   {
     halProcessKeyInterrupt();
   }
@@ -539,6 +581,33 @@ HAL_ISR_FUNCTION( halKeyPort0Isr, P0INT_VECTOR )
   HAL_KEY_SW_6_PXIFG = 0;
   HAL_KEY_CPU_PORT_0_IF = 0;
 }
+
+/**************************************************************************************************
+ * @fn      halKeyPort0Isr
+ *
+ * @brief   Port0 ISR
+ *
+ * @param
+ *
+ * @return
+ **************************************************************************************************/
+HAL_ISR_FUNCTION( halKeyPort1Isr, P1INT_VECTOR )
+{
+#if DEVICE_TYPE==WS_COORDINATOR
+  if (PUSH4_PXIFG & PUSH4_BV)
+  {
+    halProcessKeyInterrupt();
+  }
+
+  /*
+    Clear the CPU interrupt flag for Port_0
+    PxIFG has to be cleared before PxIF
+  */
+  PUSH4_PXIFG = 0;
+#endif
+  HAL_KEY_CPU_PORT_1_IF = 0;
+}
+
 
 
 /**************************************************************************************************

@@ -93,7 +93,7 @@ const uint8 zclWATERSWITCH_DateCode[] = { 16, '2','0','1','8','0','3','0','6',' 
 const uint8 zclWATERSWITCH_PowerSource = POWER_SOURCE_MAINS_1_PHASE;
 
 uint8 zclWATERSWITCH_LocationDescription[17] = { 16, ' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ',' ' };
-uint8 zclWATERSWITCH_PhysicalEnvironment = SALOR_SWITCH_TEMP; //Use as switch temp. In winter the temp will be 5 degrees higher
+uint8 zclWATERSWITCH_PhysicalEnvironment = OUTPUT_SEIRAL; //Control the output channcel
 uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
 uint16 device_Status = 0;
 

@@ -103,6 +103,7 @@ extern cId_t zclWATERSWITCH_OutClusterList[];
 extern byte bound;
 extern uint16 pendingTask;
 extern zclReportCmd_t *pReportCmd;
+extern char strTemp[];
 
 #if DEVICE_TYPE==WS_COORDINATOR
 extern afAddrType_t WaterSwitch_TempDstAddr;
@@ -118,6 +119,8 @@ extern uint16 salorWaterUsing;
 extern uint8 fireTurnedOn;
 extern uint8 fireUsing;
 extern uint8 fireOperation;
+extern uint16 p0_0_time;
+extern uint16 p1_3_time;
 
 void HandelFireOperationEvents(void);
 void SelectWaterSupplier(uint8 supplier);
@@ -140,6 +143,20 @@ void AfSendData(uint16 shortAddr, uint8* data, uint16 length);
 void CheckPendingTask(uint16 task);
 void ClearPendingTask(uint16 task);
 void CheckPendingTaskCB();
+
+#if DEVICE_TYPE==WS_COORDINATOR
+#define INFO_OUTPUT(x, l)  if(zclWATERSWITCH_PhysicalEnvironment==OUTPUT_SEIRAL){  \
+  HalUARTWrite(1, x, l);                                                \
+} else {                                                                        \
+  AfSendData(WaterSwitch_RemoteControlAddr.addr.shortAddr, x, l);       \
+}
+#else
+#define INFO_OUTPUT(x, l)  if(zclWATERSWITCH_PhysicalEnvironment==OUTPUT_SEIRAL){  \
+  HalUARTWrite(1, x, l);                                                \
+} else {                                                                        \
+  AfSendData(0, x, l);                                                  \
+}
+#endif
 
 /*********************************************************************
 *********************************************************************/

@@ -74,7 +74,7 @@
 #define CMD1_DEVICE_STATUS 2
 #define CMD1_WORK_MODE 3
 #define CMD1_WATER_SUPPLIER 4
-#define CMD1_SWITCH_TEMP 5
+#define CMD1_SWITCH_OUTPUT 5
 #else
 #endif
 

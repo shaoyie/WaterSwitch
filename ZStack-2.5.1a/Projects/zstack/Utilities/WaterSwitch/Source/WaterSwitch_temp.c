@@ -265,7 +265,7 @@ void ProcessAdcBatchData(void){
 
     readIndex++;
     sprintf(strTemp, "Got data	%u	%u	%u	%d\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow, readIndex);
-    HalUARTWrite(1, strTemp, strlen(strTemp)); //输出接收到的数据 
+    INFO_OUTPUT( strTemp, strlen(strTemp)); //输出接收到的数据 
     osal_set_event (WaterSwitch_TaskID, WATERSWITCH_HAL_ADC_TRANSFER_DONE_EVT);
   } else {
     readIndex = 0;
@@ -291,7 +291,7 @@ void ProcessAdcBatchData(void){
 void RegularTask( void )
 {
 #if defined CAPTURE_RAW_DATA|| defined DEBUG
-  uchar strTemp[60];
+  uchar strOutput[100];
 #endif
 #ifdef USE_ADC
   //Start ADC
@@ -304,14 +304,14 @@ void RegularTask( void )
   //ReadAdcValues(adcData);
 #endif
   
+#ifdef DEBUG
 #ifdef CAPTURE_RAW_DATA
-  
+  strOutput[0]=0;
   if(rawdataWriteIndex>=200){
     int i=0;
-    strTemp[0]=0;
-    for(int i=0;i<2;i++){
+    for(;i<1;i++){
       sprintf(strTemp, "Raw:	%u	%u	%u	%u\n\r", durRaw[i*4+readIndex+P0_DURATION], durRaw[i*4+readIndex+P2_IN_DURATION], durRaw[i*4+readIndex+P2_OUT_DURATION],durRaw[i*4+readIndex+P1_DURATION]);
-      AfSendData(0, strTemp, strlen(strTemp));
+      strcat(strOutput, strTemp);
     }
     readIndex+=(i*4);
     if(readIndex>=200){
@@ -319,9 +319,11 @@ void RegularTask( void )
       readIndex = 0;
     }
   }
+#endif
   
   sprintf(strTemp, "Valid:	%u	%u	%u	%u\n\r", validDuration[P0_DURATION], validDuration[P2_IN_DURATION], validDuration[P2_OUT_DURATION],validDuration[P1_DURATION]);
-  AfSendData(0, strTemp, strlen(strTemp));
+  strcat(strOutput, strTemp);
+  AfSendData(0, strOutput, strlen(strOutput));
 #endif
   
   //Fill into the attribute    
@@ -334,7 +336,7 @@ void RegularTask( void )
       p2=p2/p0;
       //Temp
       //The formula need to adjust
-      zclWATERSWITCH_Temp = 36.526*p1-53.822;
+      zclWATERSWITCH_Temp = 26.4*p1-31.818;
       //Water level
       if(p2>WATER_LEVEL0){
         zclWATERSWITCH_Occupancy = 0;
@@ -358,7 +360,7 @@ void RegularTask( void )
 #ifdef DEBUG
   //Debug mode, send the raw data    
   sprintf(strTemp, "Got data: %u, %u, %u\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow);
-  HalUARTWrite(1, strTemp, strlen(strTemp)); 
+  INFO_OUTPUT( strTemp, strlen(strTemp)); 
 #endif
   
 }
