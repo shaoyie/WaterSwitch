@@ -400,7 +400,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
           osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_REGULAR_TASK_EVT );
           osal_start_timerEx( WaterSwitch_TaskID,
                              WATERSWITCH_REGULAR_TASK_EVT,
-                             WATERSWITCH_REGULAR_TASK_TIMEOUT );
+                             WATERSWITCH_REGULAR_TASK_TIMEOUT * 2 );  //Wait for device connect
 #else
           // Initiate a Match Description Request (Service Discovery)
           if(binding==0){
@@ -673,6 +673,9 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
   }
 }
 
+#if DEVICE_TYPE==WS_COORDINATOR
+static uint32 lastClickStamp=0;
+#endif
 /*********************************************************************
 * @fn      WaterSwitch_HandleKeys
 *
@@ -704,7 +707,12 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
       INFO_OUTPUT(strTemp, strlen(strTemp)); 
 #endif
 #if DEVICE_TYPE==WS_COORDINATOR
-      ToggleWorkMode();
+      uint32 now=osal_GetSystemClock();
+      //Debounce
+      if(now-lastClickStamp>1000){
+        lastClickStamp=now;
+        ToggleWorkMode();
+      }
 #endif
     }
     
@@ -715,7 +723,27 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
       INFO_OUTPUT(strTemp, strlen(strTemp)); 
 #endif
 #if DEVICE_TYPE==WS_COORDINATOR
-      ToggleWaterSupplier();
+      uint32 now=osal_GetSystemClock();
+      //Debounce
+      if(now-lastClickStamp>1000){
+        lastClickStamp=now;
+        ToggleWaterSupplier();
+      }
+#endif
+    }
+    if ( keys & HAL_KEY_SW_3 )
+    {
+#ifdef DEBUG      
+      sprintf(strTemp, "Btn 3 pressed\n\r");
+      INFO_OUTPUT(strTemp, strlen(strTemp)); 
+#endif
+    }
+    
+    if ( keys & HAL_KEY_SW_4 )
+    {
+#ifdef DEBUG   
+      sprintf(strTemp, "Btn 4 pressed\n\r");
+      INFO_OUTPUT(strTemp, strlen(strTemp)); 
 #endif
     }
   }
@@ -929,16 +957,11 @@ static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
   //Has pending task?
   if(pendingTask & TURN_ON_OFF_VALVE){
     zclDefaultRspCmd_t *defaultRspCmd = (zclDefaultRspCmd_t *)pInMsg->attrCmd;
-#ifdef DEBUG
-    char strTemp[40];
-    sprintf(strTemp, "Got TURN_ON_OFF_VALVE feedback\n\r");
-    INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
     
     if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF) {
       
 #ifdef DEBUG
-      sprintf(strTemp, "Clear the pending task\n\r");
+      sprintf(strTemp, "Clear TURN_ON_OFF_VALVE pending task\n\r");
       INFO_OUTPUT( strTemp, strlen(strTemp));
 #endif
       ClearPendingTask(TURN_ON_OFF_VALVE);

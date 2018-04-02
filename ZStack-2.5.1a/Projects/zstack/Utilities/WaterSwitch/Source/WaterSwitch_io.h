@@ -11,8 +11,8 @@
 
 #if DEVICE_TYPE==WS_COORDINATOR
 //Input
-#define FIRE_ON_DETECT  P0_0
-#define FIRE_ON_DETECT_BV  BV(0)
+#define FIRE_ON_DETECT  P1_2
+#define FIRE_ON_DETECT_BV  BV(2)
 
 #define FIRE_USING_DETECT  P1_3
 #define FIRE_USING_DETECT_BV  BV(3)
@@ -23,9 +23,6 @@
 #define PUMP_POWER_BV BV(1)
 #define PUMP_DIRECTION  P0_2
 #define PUMP_DIRECTION_BV BV(2)
-
-#define FIRE_TEMP_DOWN  P1_2
-#define FIRE_TEMP_DOWN_BV  BV(2)
 
 #define FIRE_SWITCH  P2_0
 #define FIRE_SWITCH_BV  BV(0)
@@ -52,10 +49,10 @@
 #define TEMP_DECT_PIN_BV   BV(2)
 
 #define CAPTURE_VALUE_TOLERANCE   60
-#define WATER_LEVEL0   0.7
-#define WATER_LEVEL1   0.62
-#define WATER_LEVEL2   0.55
-#define WATER_LEVEL3   0.443
+#define WATER_LEVEL0   0.676
+#define WATER_LEVEL1   0.6
+#define WATER_LEVEL2   0.52
+#define WATER_LEVEL3   0.3
 
 #define P0_DURATION 0
 #define P2_IN_DURATION 1

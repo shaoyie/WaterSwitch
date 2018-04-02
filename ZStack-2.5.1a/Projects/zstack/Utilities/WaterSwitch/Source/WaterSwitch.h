@@ -88,7 +88,6 @@ extern uint8 zclWATERSWITCH_PhysicalEnvironment;
 extern uint16 zclWATERSWITCH_IdentifyTime;
 extern uint8  zclWATERSWITCH_OnOff;
 extern uint8 zclWATERSWITCH_OnOffSwitch;
-extern uint8  zclWATERSWITCH_OnOff;
 extern uint16  zclWATERSWITCH_Temp;
 extern uint16  zclWATERSWITCH_Occupancy;
 extern uint16 zclWATERSWITCH_Flow;
@@ -119,8 +118,8 @@ extern uint16 salorWaterUsing;
 extern uint8 fireTurnedOn;
 extern uint8 fireUsing;
 extern uint8 fireOperation;
-extern uint16 p0_0_time;
-extern uint16 p1_3_time;
+extern uint32 p0_0_time;
+extern uint32 p1_3_time;
 
 void HandelFireOperationEvents(void);
 void SelectWaterSupplier(uint8 supplier);

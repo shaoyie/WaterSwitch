@@ -305,8 +305,8 @@ void RegularTask( void )
 #endif
   
 #ifdef DEBUG
-#ifdef CAPTURE_RAW_DATA
   strOutput[0]=0;
+#ifdef CAPTURE_RAW_DATA
   if(rawdataWriteIndex>=200){
     int i=0;
     for(;i<1;i++){
@@ -336,7 +336,7 @@ void RegularTask( void )
       p2=p2/p0;
       //Temp
       //The formula need to adjust
-      zclWATERSWITCH_Temp = 26.4*p1-31.818;
+      zclWATERSWITCH_Temp = 26.455*p1-31.974;
       //Water level
       if(p2>WATER_LEVEL0){
         zclWATERSWITCH_Occupancy = 0;

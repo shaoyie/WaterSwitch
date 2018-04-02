@@ -9,7 +9,7 @@
 #define WS_GATEWAY  4
 
 #define DEBUG
-#define CAPTURE_RAW_DATA
+//#define CAPTURE_RAW_DATA
 //#define USE_ADC
 
 /*********************************************************************

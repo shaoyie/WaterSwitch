@@ -30,10 +30,20 @@
 
 #if DEVICE_TYPE==WS_GATEWAY
 uint8 targetWorkMode=0;
+uint8 targetWaterSupplier=0;
 
 void ReadAttributeForCmd(uint8 cmd1);
 
 void WaterSwitch_InitIO(void){
+}
+
+static void SendSwitchCmd(uint supplier){
+  
+  if(supplier==SALOR_ON){
+    zclGeneral_SendOnOff_CmdOn( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+  } else {
+    zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+  }
 }
 
 void CheckPendingTaskCB(){
@@ -48,7 +58,7 @@ void CheckPendingTaskCB(){
   //Turn on/off valve
   if(pendingTask & TURN_ON_OFF_VALVE){
     //Send again
-    zclGeneral_SendOnOff_CmdToggle( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+    SendSwitchCmd(targetWaterSupplier);
     CheckPendingTask(TURN_ON_OFF_VALVE);
   }
 }
@@ -155,6 +165,7 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           if(length!=1){
             //error
             sprintf(strTemp, "Wrong cmd1 length\n\r");
+            INFO_OUTPUT( strTemp, strlen(strTemp));
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
             //Make sure the set is done
@@ -166,14 +177,23 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           if(length!=1){
             //error
             sprintf(strTemp, "Wrong cmd1 length\n\r");
+            INFO_OUTPUT( strTemp, strlen(strTemp));
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
           }
           break;
         case CMD1_WATER_SUPPLIER:
-          zclGeneral_SendOnOff_CmdToggle( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr, false, 0 );
+          
+          if(length!=1){
+            //error
+            sprintf(strTemp, "Wrong cmd1 length\n\r");
+            INFO_OUTPUT( strTemp, strlen(strTemp));
+          } else {
+            targetWaterSupplier=pkt->msg[MT_RPC_POS_DAT0];
+            SendSwitchCmd(targetWaterSupplier);
             //Make sure the set is done
-          CheckPendingTask(TURN_ON_OFF_VALVE);
+            CheckPendingTask(TURN_ON_OFF_VALVE);
+          }
           break;
         default:
           sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
@@ -303,7 +323,7 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_WATER_SUPPLIER, &supplier, sizeof(supplier));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_BASIC && prsp->attrID==ATTRID_BASIC_PHYSICAL_ENV){
-        //salor or fire
+        //out put channel
         uint8 tempSwitch=*(prsp->data);
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_SWITCH_OUTPUT, &tempSwitch, sizeof(tempSwitch));

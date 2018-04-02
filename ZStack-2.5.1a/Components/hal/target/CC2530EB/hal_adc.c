@@ -112,6 +112,7 @@ void HalAdcInit (void)
 //Start the ADC convert on the P0.0-P0.2
 void StartAdcConvert(){
 #if (HAL_ADC == TRUE)
+  APCFG = 0;
   ADCIF = 0;
   TR0=1;    //Connect temp sensor
   ATEST =1; //Enable temp sensor

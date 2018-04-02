@@ -162,11 +162,11 @@
 #define PUSH2_POLARITY    ACTIVE_HIGH
 
 #if DEVICE_TYPE==WS_COORDINATOR
-#define PUSH3_PORT   P0
-#define PUSH3_SEL    P0SEL
-#define PUSH3_DIR    P0DIR
-#define PUSH3_BV          BV(0)
-#define PUSH3_SBIT        P0_0
+#define PUSH3_PORT   P1
+#define PUSH3_SEL    P1SEL
+#define PUSH3_DIR    P1DIR
+#define PUSH3_BV          BV(2)
+#define PUSH3_SBIT        P1_2
 #define PUSH3_POLARITY    ACTIVE_HIGH
 
 #define PUSH4_PORT   P1
@@ -282,6 +282,7 @@ extern void MAC_RfFrontendSetup(void);
   P0INP |= PUSH1_BV;                                             \
   P0INP |= PUSH2_BV;                                             \
   P0INP |= PUSH3_BV;                                             \
+  P1INP |= PUSH4_BV;                                             \
 }
 #else
 #define HAL_BOARD_INIT()                                         \
