@@ -55,18 +55,18 @@ void CheckPendingTaskCB(){
 }
 
 /*********************************************************************
- * @fn      zclSampleLight_OnOffCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an On/Off Command for this application.
- *
- * @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
- *
- * @return  none
- */
+* @fn      zclSampleLight_OnOffCB
+*
+* @brief   Callback from the ZCL General Cluster Library when
+*          it received an On/Off Command for this application.
+*
+* @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
+*
+* @return  none
+*/
 void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
-   
+  
   // Turn on
   if ( cmd == COMMAND_ON ) {
     zclWATERSWITCH_OnOff = PUMP_ON;
@@ -80,10 +80,7 @@ void zclWATERSWITCH_OnOffCB( uint8 cmd )
   {
     //We don't have this case
   }
-#ifdef DEBUG
-  sprintf(strTemp, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
-  INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
+  LOG_OUTPUT(LOG_DEBUG, "Pump: %d\r\n", zclWATERSWITCH_OnOff);
   TurnOnOffValve(zclWATERSWITCH_OnOff);
 }
 

@@ -8,9 +8,22 @@
 #define WS_TEMP   3
 #define WS_GATEWAY  4
 
-#define DEBUG
+#define LOG_INFO    2
+#define LOG_DEBUG   4
+#define LOG_ERROR   8
+#define DATA_OUTPUT   16
+
+//#define DEBUG
 //#define CAPTURE_RAW_DATA
 //#define USE_ADC
+//#define WINTER_DIFFERENT_POLICY
+
+//Default
+#if DEVICE_TYPE==WS_COORDINATOR
+#define OUTPUT_LEVEL      DATA_OUTPUT|LOG_ERROR|LOG_INFO|OUTPUT_SEIRAL
+#else
+#define OUTPUT_LEVEL      DATA_OUTPUT|LOG_ERROR|LOG_INFO|LOG_DEBUG|OUTPUT_SEIRAL
+#endif
 
 /*********************************************************************
  * CONSTANTS

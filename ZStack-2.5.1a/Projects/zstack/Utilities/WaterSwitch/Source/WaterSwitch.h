@@ -144,18 +144,25 @@ void ClearPendingTask(uint16 task);
 void CheckPendingTaskCB();
 
 #if DEVICE_TYPE==WS_COORDINATOR
-#define INFO_OUTPUT(x, l)  if(zclWATERSWITCH_PhysicalEnvironment==OUTPUT_SEIRAL){  \
-  HalUARTWrite(1, x, l);                                                \
-} else {                                                                        \
-  AfSendData(WaterSwitch_RemoteControlAddr.addr.shortAddr, x, l);       \
-}
+#define LOG_OUTPUT_CHANNEL      WaterSwitch_RemoteControlAddr.addr.shortAddr
 #else
-#define INFO_OUTPUT(x, l)  if(zclWATERSWITCH_PhysicalEnvironment==OUTPUT_SEIRAL){  \
-  HalUARTWrite(1, x, l);                                                \
-} else {                                                                        \
-  AfSendData(0, x, l);                                                  \
-}
+#define LOG_OUTPUT_CHANNEL      0
 #endif
+
+#define LOG_LEVEL_ENABLED(l) (zclWATERSWITCH_PhysicalEnvironment&l)
+
+#define INFO_OUTPUT(level, x, len)  if((zclWATERSWITCH_PhysicalEnvironment&level)!=0){   \
+if(zclWATERSWITCH_PhysicalEnvironment&OUTPUT_AF_MESSAGE){                           \
+  AfSendData(LOG_OUTPUT_CHANNEL, x, len);                                 \
+} else {                                                                  \
+  HalUARTWrite(1, x, len);                                                \
+}                                                                         \
+}
+
+#define LOG_OUTPUT(level, format, args...)    if((zclWATERSWITCH_PhysicalEnvironment&level)!=0){ \
+  sprintf(strTemp, format, ##args);                                                \
+  INFO_OUTPUT(level, strTemp, strlen(strTemp));                                   \
+} 
 
 /*********************************************************************
 *********************************************************************/

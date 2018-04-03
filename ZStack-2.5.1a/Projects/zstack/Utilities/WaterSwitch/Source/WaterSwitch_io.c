@@ -8,12 +8,10 @@
 
 #if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
 void TurnOnOffValve(uint8 onoff){
-#ifdef DEBUG
-      sprintf(strTemp, "Start drive valve\r\n");
-      INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
   //Decide the direction
   PUMP_DIRECTION=ACTIVE_HIGH(onoff);
+  
+  LOG_OUTPUT(LOG_INFO,  "Start drive valve\r\n");
   //Output power
   PUMP_POWER=ACTIVE_HIGH(PUMP_ON);
   //Start timer to stop the valve driver
@@ -22,12 +20,10 @@ void TurnOnOffValve(uint8 onoff){
 } 
 
 void StopValueOutput(void){
-#ifdef DEBUG
-      sprintf(strTemp, "Stop drive valve\r\n");
-      INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
   //Stop power output
   PUMP_POWER=ACTIVE_HIGH(PUMP_OFF);
+  
+  LOG_OUTPUT(LOG_INFO,  "Stop drive valve\r\n");
   //Stop direction output
   PUMP_DIRECTION=ACTIVE_HIGH(PUMP_OFF);
 }

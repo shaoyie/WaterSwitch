@@ -42,18 +42,18 @@ static uint16 rawdataWriteIndex=0;
 
 void WaterSwitch_InitIO(void){
   
-    //Input
+  //Input
   /* configure tristates */
   //3-state for input
   //P1 Ports
   P1INP |= (WATER_ENTERING_DETECT_BV);
   P1SEL &= ~(WATER_ENTERING_DETECT_BV);    /* Set pin function to GPIO */
   P1DIR &= ~(WATER_ENTERING_DETECT_BV);    /* Set pin direction to Input */
-
-
+  
+  
   //Not use ADC, then use timer
   //Config P1.2
-
+  
   PERCFG |= (1<<6); //Use loc 2
   P1SEL &= ~(TEMP_DECT_PIN_BV);    //P1.2 use as GPIO
   P2SEL |= (1<<3);   //Timer1 has priority
@@ -67,7 +67,7 @@ void WaterSwitch_InitIO(void){
   T1CNTL = 0xff;   //Write anything to init the channel 0
   
   T1IE = 1;     //Enable interrupt
-
+  
 }
 
 void CheckPendingTaskCB(){
@@ -214,28 +214,28 @@ __interrupt void Timer1_ISR(void)
 }
 
 static void SendTempReport(){ 
-    
-    // Set up the first attribute
-    pReportCmd->attrList[0].attrID = ATTRID_MS_TEMPERATURE_MEASURED_VALUE;
-    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
-    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Temp;
-    
-    //Send the report
-    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
-                       ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT, pReportCmd,
-                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+  
+  // Set up the first attribute
+  pReportCmd->attrList[0].attrID = ATTRID_MS_TEMPERATURE_MEASURED_VALUE;
+  pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+  pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Temp;
+  
+  //Send the report
+  zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                    ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT, pReportCmd,
+                    ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
 }
 static void SendOccupancyReport(){ 
-    
-    // Set up the first attribute
-    pReportCmd->attrList[0].attrID = ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY;
-    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
-    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Occupancy;
-    
-    //Send the report
-    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
-                       ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING, pReportCmd,
-                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+  
+  // Set up the first attribute
+  pReportCmd->attrList[0].attrID = ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY;
+  pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+  pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Occupancy;
+  
+  //Send the report
+  zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                    ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING, pReportCmd,
+                    ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
 }
 
 #ifdef USE_ADC
@@ -246,9 +246,9 @@ void ProcessAdcBatchData(void){
 #if (HAL_ADC == TRUE)
   if(readIndex<ADC_CAPTURE_COUNT){
     //Really raw data
-//    zclWATERSWITCH_Temp = adcBuf[readIndex*3];
-//    zclWATERSWITCH_Occupancy = adcBuf[readIndex*3+1];
-//    zclWATERSWITCH_Flow =adcBuf[readIndex*3+2];
+    //    zclWATERSWITCH_Temp = adcBuf[readIndex*3];
+    //    zclWATERSWITCH_Occupancy = adcBuf[readIndex*3+1];
+    //    zclWATERSWITCH_Flow =adcBuf[readIndex*3+2];
     int actualIndex=readIndex*3;
     zclWATERSWITCH_Temp = adcBuf[actualIndex]>>6;
     zclWATERSWITCH_Occupancy = adcBuf[actualIndex+1]>>6;
@@ -262,7 +262,7 @@ void ProcessAdcBatchData(void){
     SendTempReport();
     SendOccupancyReport();
     SendFlowReport();
-
+    
     readIndex++;
     sprintf(strTemp, "Got data	%u	%u	%u	%d\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow, readIndex);
     INFO_OUTPUT( strTemp, strlen(strTemp)); //输出接收到的数据 
@@ -357,24 +357,21 @@ void RegularTask( void )
   //Flow
   zclWATERSWITCH_Flow = ACTIVE_LOW(WATER_ENTERING_DETECT);
   SendFlowReport();
-#ifdef DEBUG
   //Debug mode, send the raw data    
-  sprintf(strTemp, "Got data: %u, %u, %u\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow);
-  INFO_OUTPUT( strTemp, strlen(strTemp)); 
-#endif
+  LOG_OUTPUT(LOG_DEBUG, "Got data: %u, %u, %u\n\r", zclWATERSWITCH_Temp, zclWATERSWITCH_Occupancy, zclWATERSWITCH_Flow);
   
 }
 
 /*********************************************************************
- * @fn      zclSampleLight_OnOffCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an On/Off Command for this application.
- *
- * @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
- *
- * @return  none
- */
+* @fn      zclSampleLight_OnOffCB
+*
+* @brief   Callback from the ZCL General Cluster Library when
+*          it received an On/Off Command for this application.
+*
+* @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
+*
+* @return  none
+*/
 void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
 }

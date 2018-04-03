@@ -79,11 +79,7 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
   if(pendingTask & SET_WORKMODE){
     zclWriteRspCmd_t *writeRspCmd;
     uint8 i;
-#ifdef DEBUG
-    char strTemp[40];
-    sprintf(strTemp, "Got write attribute feedback\n\r");
-    INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
+    LOG_OUTPUT(LOG_DEBUG, "Got write attribute feedback\n\r");
     writeRspCmd = (zclWriteRspCmd_t *)pInMsg->attrCmd;
     for (i = 0; i < writeRspCmd->numAttr; i++)
     {
@@ -95,10 +91,7 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
         //Notify up level
         //auto/manual work mode
         SendSerialData(CMD0_WRITE_RSP, CMD1_WORK_MODE, &targetWorkMode, sizeof(targetWorkMode));
-#ifdef DEBUG
-        sprintf(strTemp, "Clear the pending task\n\r");
-        INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
+        LOG_OUTPUT(LOG_DEBUG, "Clear the pending task\n\r");
       }
     }
   }
@@ -164,8 +157,7 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
         case CMD1_WORK_MODE:
           if(length!=1){
             //error
-            sprintf(strTemp, "Wrong cmd1 length\n\r");
-            INFO_OUTPUT( strTemp, strlen(strTemp));
+            LOG_OUTPUT(LOG_ERROR, "Wrong cmd1 length\n\r");
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
             //Make sure the set is done
@@ -176,8 +168,7 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
         case CMD1_SWITCH_OUTPUT:
           if(length!=1){
             //error
-            sprintf(strTemp, "Wrong cmd1 length\n\r");
-            INFO_OUTPUT( strTemp, strlen(strTemp));
+            LOG_OUTPUT(LOG_ERROR,  "Wrong cmd1 length\n\r");
           } else {
             WriteAttrbuite(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV, ZCL_DATATYPE_UINT8, &(pkt->msg[MT_RPC_POS_DAT0]));
           }
@@ -186,8 +177,7 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           
           if(length!=1){
             //error
-            sprintf(strTemp, "Wrong cmd1 length\n\r");
-            INFO_OUTPUT( strTemp, strlen(strTemp));
+            LOG_OUTPUT(LOG_ERROR,  "Wrong cmd1 length\n\r");
           } else {
             targetWaterSupplier=pkt->msg[MT_RPC_POS_DAT0];
             SendSwitchCmd(targetWaterSupplier);
@@ -196,26 +186,23 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
           }
           break;
         default:
-          sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
-          INFO_OUTPUT( strTemp, strlen(strTemp));
+          LOG_OUTPUT(LOG_ERROR,  "Wrong cmd1 %x\n\r", cmd1);
           break;
         }
       }
       break;
     default:    
-      sprintf(strTemp, "Wrong cmd0 %x\n\r", cmd0);
-      INFO_OUTPUT( strTemp, strlen(strTemp));
+      LOG_OUTPUT(LOG_ERROR,  "Wrong cmd0 %x\n\r", cmd0);
       break;
     }
   } else {
     
-    sprintf(strTemp, "Not bound with server yet\n\r");
-    INFO_OUTPUT( strTemp, strlen(strTemp));
+    LOG_OUTPUT(LOG_ERROR,  "Not bound with server yet\n\r");
   }
   
   
-  INFO_OUTPUT( "Uart got:", 9); 
-  INFO_OUTPUT( &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
+  INFO_OUTPUT(LOG_DEBUG, "Uart got:", 9); 
+  INFO_OUTPUT(LOG_DEBUG, &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
 }
 
 
@@ -242,8 +229,7 @@ void ReadAttributeForCmd(uint8 cmd1){
     ReadAttribute(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV);
     break;
   default:    
-    sprintf(strTemp, "Wrong cmd1 %x\n\r", cmd1);
-    INFO_OUTPUT( strTemp, strlen(strTemp));
+    LOG_OUTPUT(LOG_ERROR, "Wrong cmd1 %x\n\r", cmd1);
     break;
   }
 }
@@ -266,7 +252,7 @@ void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len){
       pbuf[i++]=data[readIndex++];
     }
     pbuf[i]=MT_UartCalcFCS(&(pbuf[1]), len+3);
-    INFO_OUTPUT( pbuf, len+5); 
+    INFO_OUTPUT(DATA_OUTPUT, pbuf, len+5); 
     osal_mem_free( pbuf );
   }
 }
@@ -303,9 +289,8 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_MS_TEMPERATURE_MEASUREMENT && prsp->attrID==ATTRID_MS_TEMPERATURE_MEASURED_VALUE){
         //temperature
         uint16 data=*((uint16 *)prsp->data);
-        uint8 temp=(uint8)data;
         //Report to the upper machine by UART
-        SendSerialData(CMD0_READ_RSP, CMD1_TEMP, &temp, sizeof(temp));
+        SendSerialData(CMD0_READ_RSP, CMD1_TEMP, (uint8*)&data, sizeof(data));
       } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_MS_OCCUPANCY_SENSING && prsp->attrID==ATTRID_MS_OCCUPANCY_SENSING_CONFIG_OCCUPANCY){
         //water level
         uint16 data=*((uint16 *)prsp->data);
@@ -338,15 +323,15 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
 #endif // ZCL_READ
 
 /*********************************************************************
- * @fn      zclSampleLight_OnOffCB
- *
- * @brief   Callback from the ZCL General Cluster Library when
- *          it received an On/Off Command for this application.
- *
- * @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
- *
- * @return  none
- */
+* @fn      zclSampleLight_OnOffCB
+*
+* @brief   Callback from the ZCL General Cluster Library when
+*          it received an On/Off Command for this application.
+*
+* @param   cmd - COMMAND_ON, COMMAND_OFF or COMMAND_TOGGLE
+*
+* @return  none
+*/
 void zclWATERSWITCH_OnOffCB( uint8 cmd )
 {
 }

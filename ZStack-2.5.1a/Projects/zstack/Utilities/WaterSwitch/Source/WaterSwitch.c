@@ -330,7 +330,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
   byte sentTransID;       // This should match the value sent
   zAddrType_t dstAddr;
   (void)task_id;  // Intentionally unreferenced parameter
-    
+  
   if ( events & SYS_EVENT_MSG )
   {
     MSGpkt = (afIncomingMSGPacket_t *)osal_msg_receive( WaterSwitch_TaskID );
@@ -347,8 +347,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
       case ZDO_MATCH_DESC_RSP_SENT:
 #if DEVICE_TYPE==WS_COORDINATOR
         //Sent when the server responds to client's bind request
-        sprintf(strTemp, "MATCH_RSP for %x\n\r", ((ZDO_MatchDescRspSent_t *)MSGpkt)->nwkAddr);
-        INFO_OUTPUT( strTemp,strlen(strTemp));
+        LOG_OUTPUT(LOG_INFO, "MATCH_RSP for %x\n\r", ((ZDO_MatchDescRspSent_t *)MSGpkt)->nwkAddr);
         //Request the client's active endpoints
         ActiveEPReq(((ZDO_MatchDescRspSent_t *)MSGpkt)->nwkAddr);
 #endif
@@ -389,9 +388,8 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
         if ( (WaterSwitch_NwkState == DEV_ZB_COORD)
             || (WaterSwitch_NwkState == DEV_ROUTER)
               || (WaterSwitch_NwkState == DEV_END_DEVICE) )
-        {
-          sprintf(strTemp, "Status changed\n\r");
-          INFO_OUTPUT(strTemp, strlen(strTemp)); 
+        { 
+          LOG_OUTPUT(LOG_INFO, "Status changed\n\r");
 #if DEVICE_TYPE==WS_COORDINATOR
           //Allow the devices to bind
           //zb_AllowBind(0xFF);
@@ -534,8 +532,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
   switch ( inMsg->clusterID )
   {
   case End_Device_Bind_rsp:
-    sprintf(strTemp, "End_Device_Bind_rsp\n");
-    INFO_OUTPUT(strTemp, strlen(strTemp)); 
+    LOG_OUTPUT(LOG_INFO,  "End_Device_Bind_rsp\n");
 #if 0
     if ( ZDO_ParseBindRsp( inMsg ) == ZSuccess )
     {
@@ -554,10 +551,9 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
   case Match_Desc_rsp:
 #if DEVICE_TYPE!=WS_COORDINATOR
     //Get server's match response
-    sprintf(strTemp, "Match_Desc_rsp\n");
-    INFO_OUTPUT(strTemp, strlen(strTemp)); 
+    LOG_OUTPUT(LOG_INFO, "Match_Desc_rsp\n");
     binding = 0;
-
+    
     ZDO_ActiveEndpointRsp_t *pRsp = ZDO_ParseEPListRsp( inMsg );
     if ( pRsp )
     {
@@ -569,8 +565,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
         WaterSwitch_DstAddr.addr.shortAddr = pRsp->nwkAddr;
         // Take the first endpoint, Can be changed to search through endpoints
         WaterSwitch_DstAddr.endPoint = pRsp->epList[0];
-        sprintf(strTemp, "add:%x ep:%d\n\r", WaterSwitch_DstAddr.addr.shortAddr, WaterSwitch_DstAddr.endPoint);
-        INFO_OUTPUT(strTemp,strlen(strTemp));
+        LOG_OUTPUT(LOG_INFO,  "add:%x ep:%d\n\r", WaterSwitch_DstAddr.addr.shortAddr, WaterSwitch_DstAddr.endPoint);
         // Light LED
         //HalLedSet( HAL_LED_4, HAL_LED_MODE_ON );
       }
@@ -586,8 +581,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
     break;    
 #if DEVICE_TYPE==WS_COORDINATOR
   case Active_EP_rsp:
-    sprintf(strTemp, "Active_EP_rsp\n");
-    INFO_OUTPUT(strTemp, strlen(strTemp)); 
+    LOG_OUTPUT(LOG_INFO,  "Active_EP_rsp\n");
     {
       zAddrType_t dstAddr;
       ZDO_ActiveEndpointRsp_t *pRsp = ZDO_ParseEPListRsp( inMsg );
@@ -599,8 +593,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
         {
           for(int i=0;i<pRsp->cnt;i++){
             //Search through endpoints
-            sprintf(strTemp, "add:%x ep:%d\n\r", dstAddr.addr.shortAddr, pRsp->epList[i]);
-            INFO_OUTPUT(strTemp,strlen(strTemp));
+            LOG_OUTPUT(LOG_INFO, "add:%x ep:%d\n\r", dstAddr.addr.shortAddr, pRsp->epList[i]);
             if(pRsp->epList[i]>0){
               //Request simple desc
               ZDP_SimpleDescReq(&dstAddr, pRsp->nwkAddr, pRsp->epList[i], TRUE);
@@ -613,8 +606,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
     break;
     
   case Simple_Desc_rsp:
-    sprintf(strTemp, "Simple_Desc_rsp\n");
-    INFO_OUTPUT(strTemp, strlen(strTemp)); 
+    LOG_OUTPUT(LOG_INFO, "Simple_Desc_rsp\n");
     //Get the specified endpoint's description
     {
       ZDO_SimpleDescRsp_t *pSimpleDescRsp;   // pointer to received simple desc response
@@ -630,16 +622,13 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
         
         if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_TEMPERATURE_SENSOR){
           pAddr=&WaterSwitch_TempDstAddr;
-          sprintf(strTemp, "add:%x ep:%d is temp node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
-          INFO_OUTPUT( strTemp,strlen(strTemp));
+          LOG_OUTPUT(LOG_INFO,  "add:%x ep:%d is temp node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
         } else if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_PUMP){
           pAddr=&WaterSwitch_PumpAddr;
-          sprintf(strTemp, "add:%x ep:%d is pump node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
-          INFO_OUTPUT( strTemp,strlen(strTemp));
+          LOG_OUTPUT(LOG_INFO, "add:%x ep:%d is pump node\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
         } else if(pSimpleDescRsp->simpleDesc.AppDeviceId == ZCL_HA_DEVICEID_REMOTE_CONTROL){
           pAddr=&WaterSwitch_RemoteControlAddr;
-          sprintf(strTemp, "add:%x ep:%d is remote control\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
-          INFO_OUTPUT( strTemp,strlen(strTemp));
+          LOG_OUTPUT(LOG_INFO,  "add:%x ep:%d is remote control\n\r", pSimpleDescRsp->nwkAddr, pSimpleDescRsp->simpleDesc.EndPoint);
         }
         if(pAddr){
           //Record the device's addr info
@@ -701,11 +690,9 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
   else
   {
     if ( keys & HAL_KEY_SW_1 )
-    {
-#ifdef DEBUG      
-      sprintf(strTemp, "Btn 1 pressed\n\r");
-      INFO_OUTPUT(strTemp, strlen(strTemp)); 
-#endif
+    {    
+      
+      LOG_OUTPUT(LOG_DEBUG, "Btn 1 pressed\n\r");
 #if DEVICE_TYPE==WS_COORDINATOR
       uint32 now=osal_GetSystemClock();
       //Debounce
@@ -718,10 +705,7 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     
     if ( keys & HAL_KEY_SW_2 )
     {
-#ifdef DEBUG   
-      sprintf(strTemp, "Btn 2 pressed\n\r");
-      INFO_OUTPUT(strTemp, strlen(strTemp)); 
-#endif
+      LOG_OUTPUT(LOG_DEBUG, "Btn 2 pressed\n\r");
 #if DEVICE_TYPE==WS_COORDINATOR
       uint32 now=osal_GetSystemClock();
       //Debounce
@@ -733,18 +717,14 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     }
     if ( keys & HAL_KEY_SW_3 )
     {
-#ifdef DEBUG      
-      sprintf(strTemp, "Btn 3 pressed\n\r");
-      INFO_OUTPUT(strTemp, strlen(strTemp)); 
-#endif
+      
+      LOG_OUTPUT(LOG_DEBUG,"Btn 3 pressed\n\r");
     }
     
     if ( keys & HAL_KEY_SW_4 )
     {
-#ifdef DEBUG   
-      sprintf(strTemp, "Btn 4 pressed\n\r");
-      INFO_OUTPUT(strTemp, strlen(strTemp)); 
-#endif
+      
+      LOG_OUTPUT(LOG_DEBUG, "Btn 4 pressed\n\r");
     }
   }
 }
@@ -769,9 +749,13 @@ static void WaterSwitch_MessageMSGCB( afIncomingMSGPacket_t *pkt )
   switch ( pkt->clusterId )
   {
   case WATERSWITCH_CLUSTERID:
-#ifdef DEBUG
-    INFO_OUTPUT( pkt->cmd.Data, pkt->cmd.DataLength); //输出接收到的数据 
+    if(LOG_LEVEL_ENABLED(LOG_DEBUG)){   
+#if DEVICE_TYPE==WS_GATEWAY
+      //Check RSSI
+      LOG_OUTPUT(LOG_DEBUG, "Rssi: %ddB\n\r", pkt->rssi);
 #endif
+      INFO_OUTPUT(LOG_DEBUG, pkt->cmd.Data, pkt->cmd.DataLength); //输出接收到的数据 
+    }
     break;
   }
 }
@@ -960,10 +944,7 @@ static uint8 zclWATERSWITCH_ProcessInDefaultRspCmd( zclIncomingMsg_t *pInMsg )
     
     if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_ON_OFF) {
       
-#ifdef DEBUG
-      sprintf(strTemp, "Clear TURN_ON_OFF_VALVE pending task\n\r");
-      INFO_OUTPUT( strTemp, strlen(strTemp));
-#endif
+      LOG_OUTPUT(LOG_INFO,  "Clear TURN_ON_OFF_VALVE pending task\n\r");
       ClearPendingTask(TURN_ON_OFF_VALVE);
 #if DEVICE_TYPE==WS_GATEWAY
       //Report to the upper machine by UART
@@ -1195,16 +1176,16 @@ static void InitDevice(uint8 task_id){
 
 #if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_PUMP
 void SendFlowReport(){ 
-    
-    // Set up the first attribute
-    pReportCmd->attrList[0].attrID = ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE;
-    pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
-    pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Flow;
-    
-    //Send the report
-    zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
-                       ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT, pReportCmd,
-                       ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
+  
+  // Set up the first attribute
+  pReportCmd->attrList[0].attrID = ATTRID_MS_FLOW_MEASUREMENT_MEASURED_VALUE;
+  pReportCmd->attrList[0].dataType = ZCL_DATATYPE_UINT16;
+  pReportCmd->attrList[0].attrData = (uint8 *)&zclWATERSWITCH_Flow;
+  
+  //Send the report
+  zcl_SendReportCmd( WATERSWITCH_ENDPOINT, &WaterSwitch_DstAddr,
+                    ZCL_CLUSTER_ID_MS_FLOW_MEASUREMENT, pReportCmd,
+                    ZCL_FRAME_SERVER_CLIENT_DIR, 1, 0 ); 
 }
 #endif
 
