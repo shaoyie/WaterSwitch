@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/icons">
+        <file>alarm.png</file>
+        <file>down_no.png</file>
+        <file>down_water.png</file>
+        <file>fire_b.png</file>
+        <file>fire_g.png</file>
+        <file>fire_r.png</file>
+        <file>salor0.png</file>
+        <file>salor1.png</file>
+        <file>salor2.png</file>
+        <file>salor3.png</file>
+        <file>salor4.png</file>
+        <file>selector.png</file>
+        <file>up_no.png</file>
+        <file>up_water.png</file>
+    </qresource>
+</RCC>
