@@ -72,6 +72,7 @@
 #define CMD1_WORK_MODE 3
 #define CMD1_WATER_SUPPLIER 4
 #define CMD1_SWITCH_OUTPUT 5
+#define CMD1_NV_CONFIG 6
 #else
 #endif
 

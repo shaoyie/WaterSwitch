@@ -269,6 +269,10 @@ void WaterSwitch_Init( uint8 task_id )
   // Register the application's attribute list
   zcl_registerAttrList( WATERSWITCH_ENDPOINT, WATERSWITCH_MAX_ATTRIBUTES, zclWATERSWITCH_Attrs );
   
+#if DEVICE_TYPE==WS_COORDINATOR
+  zcl_registerReadWriteCB(WATERSWITCH_ENDPOINT, wsGloalConfigCB, NULL);
+#endif
+  
   // Register the Application to receive the unprocessed Foundation command/response messages
   zcl_registerForMsg( WaterSwitch_TaskID );
   
@@ -1172,6 +1176,24 @@ static void InitDevice(uint8 task_id){
   MT_UartRegisterTaskID(task_id); 
   //sprintf(strTemp, "UartInit OK\n\r");
   //INFO_OUTPUT(strTemp, strlen(strTemp)); 
+  
+#if DEVICE_TYPE==WS_COORDINATOR
+  //Init the global config value
+  zclWATERSWITCH_NvConfig.tempCalibration = ENV_TEMP_CALIBRATION;
+  zclWATERSWITCH_NvConfig.winterThreshold = 20;
+  zclWATERSWITCH_NvConfig.winterSwtichTemp = 60;
+  zclWATERSWITCH_NvConfig.summerSwitchTemp = 55;  
+  
+  //Init
+  if(osal_nv_item_init(ZCD_NV_WATER_SWITCH_CONFIG, sizeof(zclWATERSWITCH_NvConfig), &zclWATERSWITCH_NvConfig)!=NV_OPER_FAILED){
+    //Reload
+    if(osal_nv_read(ZCD_NV_WATER_SWITCH_CONFIG, 0, sizeof(zclWATERSWITCH_NvConfig), &zclWATERSWITCH_NvConfig)!=SUCCESS){
+      LOG_OUTPUT(LOG_ERROR,  "Reload global config error\r\n");
+    }
+  } else {
+      LOG_OUTPUT(LOG_ERROR,  "Init nv_config error\r\n");
+  }
+#endif
 }
 
 #if DEVICE_TYPE==WS_TEMP||DEVICE_TYPE==WS_PUMP

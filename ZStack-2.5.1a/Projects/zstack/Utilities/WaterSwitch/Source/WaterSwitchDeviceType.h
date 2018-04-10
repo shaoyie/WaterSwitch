@@ -16,7 +16,6 @@
 //#define DEBUG
 //#define CAPTURE_RAW_DATA
 //#define USE_ADC
-//#define WINTER_DIFFERENT_POLICY
 
 //Default
 #if DEVICE_TYPE==WS_COORDINATOR
@@ -86,9 +85,12 @@
 #define WATERSWITCH_FIRE_OPERATION_EVT       (1<<5)
 #define WATERSWITCH_CHECK_PENDING_TASK_EVT       (1<<6)
 
+#define ATTRID_WATER_SWITCH_NV_CONFIG      0x1111
+
 //The pending task that we need to check result
 #define TURN_ON_OFF_VALVE             1
 #define SET_WORKMODE                  1<<1
+#define SET_NV_CONFIG                  1<<2
 
 #if defined( IAR_ARMCM3_LM )
 #define WATERSWITCH_RTOS_MSG_EVT       0x0002
@@ -107,8 +109,12 @@
 #define AUTO_CONTROL                    0x00
 #define MANUAL_CONTROL                  0x01
   
-#define TEMP_WORKING                    0x01
-#define PUMP_WORKING                    0x02
+#define TEMP_ONLINE                    (1)
+#define PUMP_ONLINE                    (1<<1)
+#define SALOR_USING                     (1<<2)
+#define SALOR_WATER_ENTERING            (1<<3)
+#define FIRE_TURNED_ON                  (1<<4)
+#define FIRE_USING                      (1<<5)
 #define TEMP_ERROR                      (1<<8)
 #define PUMP_ERROR                      (2<<8)
   

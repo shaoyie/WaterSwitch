@@ -145,7 +145,7 @@ void RestartAdcConvert(){
 #endif
 }
 
-//Read out the 3 adc values
+//Read out the adc value
 uint16 ReadAdcValue(){
 #if (HAL_ADC == TRUE)
   if(ADCCON1 & HAL_ADC_EOC){

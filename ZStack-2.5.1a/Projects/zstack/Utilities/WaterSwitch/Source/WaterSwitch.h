@@ -70,8 +70,19 @@ extern "C"
  * Task Initialization for the Generic Application
  */
 void WaterSwitch_Init( byte task_id );
+
+typedef struct
+{
+  uint16          tempCalibration;      //Tempratrue calibration value
+  uint8           winterThreshold;      //The env temp decide winter
+  uint8           winterSwtichTemp;     //The center temp to switch between fire and gas in winter
+  uint8           summerSwitchTemp;     //The switch temp in summer
+} waterSwichConfig_t;
+
 extern SimpleDescriptionFormat_t WaterSwitch_epDesc;
 extern SimpleDescriptionFormat_t WaterSwitch_custEpDesc;
+
+extern waterSwichConfig_t zclWATERSWITCH_NvConfig;
 
 extern CONST zclAttrRec_t zclWATERSWITCH_Attrs[];
 /*
@@ -85,7 +96,6 @@ extern byte WaterSwitch_TransID;
 extern afAddrType_t WaterSwitch_DstAddr;
 extern uint16 device_Status;
 extern uint8 zclWATERSWITCH_PhysicalEnvironment;
-extern uint16 zclWATERSWITCH_IdentifyTime;
 extern uint8  zclWATERSWITCH_OnOff;
 extern uint8 zclWATERSWITCH_OnOffSwitch;
 extern uint16  zclWATERSWITCH_Temp;
@@ -121,6 +131,8 @@ extern uint8 fireOperation;
 extern uint32 p0_0_time;
 extern uint32 p1_3_time;
 
+ZStatus_t wsGloalConfigCB( uint16 clusterId, uint16 attrId, uint8 oper,
+                          uint8 *pValue, uint16 *pLen );
 void HandelFireOperationEvents(void);
 void SelectWaterSupplier(uint8 supplier);
 void ActiveEPReq(uint16 bindAddr);
@@ -151,7 +163,8 @@ void CheckPendingTaskCB();
 
 #define LOG_LEVEL_ENABLED(l) (zclWATERSWITCH_PhysicalEnvironment&l)
 
-#define INFO_OUTPUT(level, x, len)  if((zclWATERSWITCH_PhysicalEnvironment&level)!=0){   \
+//Data should always be enabled
+#define INFO_OUTPUT(level, x, len)  if(((zclWATERSWITCH_PhysicalEnvironment|DATA_OUTPUT)&level)!=0){   \
 if(zclWATERSWITCH_PhysicalEnvironment&OUTPUT_AF_MESSAGE){                           \
   AfSendData(LOG_OUTPUT_CHANNEL, x, len);                                 \
 } else {                                                                  \
@@ -159,7 +172,7 @@ if(zclWATERSWITCH_PhysicalEnvironment&OUTPUT_AF_MESSAGE){                       
 }                                                                         \
 }
 
-#define LOG_OUTPUT(level, format, args...)    if((zclWATERSWITCH_PhysicalEnvironment&level)!=0){ \
+#define LOG_OUTPUT(level, format, args...)    if(((zclWATERSWITCH_PhysicalEnvironment|DATA_OUTPUT)&level)!=0){ \
   sprintf(strTemp, format, ##args);                                                \
   INFO_OUTPUT(level, strTemp, strlen(strTemp));                                   \
 } 

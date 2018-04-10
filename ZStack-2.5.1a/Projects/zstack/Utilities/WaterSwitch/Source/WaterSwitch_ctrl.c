@@ -32,6 +32,14 @@
 uint8 targetWorkMode=0;
 uint8 targetWaterSupplier=0;
 
+typedef struct {
+  uint8 length;
+  waterSwichConfig_t config;
+} configBuf_t;
+
+configBuf_t configBuf;
+
+
 void ReadAttributeForCmd(uint8 cmd1);
 
 void WaterSwitch_InitIO(void){
@@ -50,6 +58,7 @@ void CheckPendingTaskCB(){
   //Has pending task
   //Set work mode
   if(pendingTask & SET_WORKMODE){
+    LOG_OUTPUT(LOG_ERROR, "Rewrite workmode\n\r");
     //Send again
     WriteAttrbuite(ZCL_CLUSTER_ID_GEN_ON_OFF_SWITCH_CONFIG, ATTRID_ON_OFF_SWITCH_ACTIONS, ZCL_DATATYPE_UINT8, &targetWorkMode);
     CheckPendingTask(SET_WORKMODE);
@@ -57,9 +66,17 @@ void CheckPendingTaskCB(){
   
   //Turn on/off valve
   if(pendingTask & TURN_ON_OFF_VALVE){
+    LOG_OUTPUT(LOG_ERROR, "Resend turn on/off cmd\n\r");
     //Send again
     SendSwitchCmd(targetWaterSupplier);
     CheckPendingTask(TURN_ON_OFF_VALVE);
+  }
+  
+  if(pendingTask & SET_NV_CONFIG){
+    LOG_OUTPUT(LOG_ERROR, "Rewrite NV_CONFIG\n\r");
+    WriteAttrbuite(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_WATER_SWITCH_NV_CONFIG, ZCL_DATATYPE_OCTET_STR, (uint8*)&configBuf);
+    //Make sure the set is done
+    CheckPendingTask(SET_NV_CONFIG);
   }
 }
 
@@ -76,7 +93,7 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
 {
   
   //We only care the feedback when we have pending task
-  if(pendingTask & SET_WORKMODE){
+  if(pendingTask & (SET_WORKMODE|SET_NV_CONFIG)){
     zclWriteRspCmd_t *writeRspCmd;
     uint8 i;
     LOG_OUTPUT(LOG_DEBUG, "Got write attribute feedback\n\r");
@@ -92,6 +109,16 @@ uint8 zclWATERSWITCH_ProcessInWriteRspCmd( zclIncomingMsg_t *pInMsg )
         //auto/manual work mode
         SendSerialData(CMD0_WRITE_RSP, CMD1_WORK_MODE, &targetWorkMode, sizeof(targetWorkMode));
         LOG_OUTPUT(LOG_DEBUG, "Clear the pending task\n\r");
+      } else if(pInMsg->clusterId==ZCL_CLUSTER_ID_GEN_BASIC && writeRspCmd->attrList[i].status == ZCL_STATUS_SUCCESS){
+        //If write all success, a total success is sent back and no detail info
+        if(pendingTask & SET_NV_CONFIG){
+          //If we have pending SET_NV_CONFIG task
+          //Write success, clear the pending task sign
+          ClearPendingTask(SET_NV_CONFIG);
+          //Notify up level
+          SendSerialData(CMD0_WRITE_RSP, CMD1_NV_CONFIG, NULL, 0);
+          LOG_OUTPUT(LOG_DEBUG, "Clear the pending task\n\r");
+        }
       }
     }
   }
@@ -185,6 +212,19 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
             CheckPendingTask(TURN_ON_OFF_VALVE);
           }
           break;
+        case CMD1_NV_CONFIG:
+          
+          if(length!=sizeof(waterSwichConfig_t)){
+            //error
+            LOG_OUTPUT(LOG_ERROR,  "Wrong cmd1 length\n\r");
+          } else {
+            configBuf.length = sizeof(waterSwichConfig_t);
+            osal_memcpy( &(configBuf.config), &(pkt->msg[MT_RPC_POS_DAT0]), sizeof(zclWATERSWITCH_NvConfig) );
+            WriteAttrbuite(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_WATER_SWITCH_NV_CONFIG, ZCL_DATATYPE_OCTET_STR, (uint8*)&configBuf);
+            //Make sure the set is done
+            CheckPendingTask(SET_NV_CONFIG);
+          }
+          break;
         default:
           LOG_OUTPUT(LOG_ERROR,  "Wrong cmd1 %x\n\r", cmd1);
           break;
@@ -227,6 +267,9 @@ void ReadAttributeForCmd(uint8 cmd1){
     break;
   case CMD1_SWITCH_OUTPUT:
     ReadAttribute(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_BASIC_PHYSICAL_ENV);
+    break;
+  case CMD1_NV_CONFIG:
+    ReadAttribute(ZCL_CLUSTER_ID_GEN_BASIC, ATTRID_WATER_SWITCH_NV_CONFIG);
     break;
   default:    
     LOG_OUTPUT(LOG_ERROR, "Wrong cmd1 %x\n\r", cmd1);
@@ -312,6 +355,10 @@ uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
         uint8 tempSwitch=*(prsp->data);
         //Report to the upper machine by UART
         SendSerialData(CMD0_READ_RSP, CMD1_SWITCH_OUTPUT, &tempSwitch, sizeof(tempSwitch));
+      } else if(pInMsg->clusterId == ZCL_CLUSTER_ID_GEN_BASIC && prsp->attrID==ATTRID_WATER_SWITCH_NV_CONFIG){
+        //NV_config
+        //Report to the upper machine by UART
+        SendSerialData(CMD0_READ_RSP, CMD1_NV_CONFIG, prsp->data+1, sizeof(waterSwichConfig_t));
       }
     }  else {
       //error

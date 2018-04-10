@@ -97,8 +97,8 @@ uint8 zclWATERSWITCH_PhysicalEnvironment = OUTPUT_LEVEL; //Control the output ch
 uint8 zclWATERSWITCH_DeviceEnable = DEVICE_ENABLED;
 uint16 device_Status = 0;
 
-// Identify Cluster
-uint16 zclWATERSWITCH_IdentifyTime = ENV_TEMP_CALIBRATION;
+//The nv configration
+waterSwichConfig_t zclWATERSWITCH_NvConfig;
 
 // The status value we care
 uint8 zclWATERSWITCH_OnOff = PENDING;
@@ -196,14 +196,14 @@ CONST zclAttrRec_t zclWATERSWITCH_Attrs[WATERSWITCH_MAX_ATTRIBUTES] =
     }
   },
   
-  // *** Identify Cluster Attribute ***
+  // *** Global nv config Attribute ***
   {
-    ZCL_CLUSTER_ID_GEN_IDENTIFY,
+    ZCL_CLUSTER_ID_GEN_BASIC,
     { // Attribute record
-      ATTRID_IDENTIFY_TIME,
-      ZCL_DATATYPE_UINT16,
+      ATTRID_WATER_SWITCH_NV_CONFIG,
+      ZCL_DATATYPE_OCTET_STR,
       (ACCESS_CONTROL_READ | ACCESS_CONTROL_WRITE),
-      (void *)&zclWATERSWITCH_IdentifyTime
+      NULL
     }
   },
 #if DEVICE_TYPE==WS_COORDINATOR || DEVICE_TYPE==WS_PUMP
