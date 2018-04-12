@@ -1,0 +1,2 @@
+QT won't regenerate the Makefiles when modify the pro file, e.g. add LIBs.
+So need to delete the Makefiles and regenerate again.
