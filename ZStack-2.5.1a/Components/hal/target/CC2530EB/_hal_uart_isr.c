@@ -22,7 +22,7 @@
   its documentation for any purpose.
 
   YOU FURTHER ACKNOWLEDGE AND AGREE THAT THE SOFTWARE AND DOCUMENTATION ARE
-  PROVIDED “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+  PROVIDED “AS IS?WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS OR IMPLIED,
   INCLUDING WITHOUT LIMITATION, ANY WARRANTY OF MERCHANTABILITY, TITLE,
   NON-INFRINGEMENT AND FITNESS FOR A PARTICULAR PURPOSE. IN NO EVENT SHALL
   TEXAS INSTRUMENTS OR ITS LICENSORS BE LIABLE OR OBLIGATED UNDER CONTRACT,
@@ -130,7 +130,7 @@
 #else
 #define PxOUT                      P1
 #define PxDIR                      P1DIR
-#define PxSEL                      P1SEL
+#define PxSEL                      P0SEL
 #define UxCSR                      U1CSR
 #define UxUCR                      U1UCR
 #define UxDBUF                     U1DBUF
@@ -152,7 +152,7 @@
 #define HAL_UART_PERCFG_BIT        0x01         // USART1 on P0, Alt-1; so clear this bit.
 #define HAL_UART_Px_RTS            0x20         // Peripheral I/O Select for RTS.
 #define HAL_UART_Px_CTS            0x10         // Peripheral I/O Select for CTS.
-#define HAL_UART_Px_RX_TX          0xC0         // Peripheral I/O Select for Rx/Tx.
+#define HAL_UART_Px_RX_TX          0x30         // Peripheral I/O Select for Rx/Tx.
 #endif
 
 // The timeout tick is at 32-kHz, so multiply msecs by 33.
@@ -253,7 +253,7 @@ static void HalUARTInitISR(void)
 #if (HAL_UART_ISR == 1)
   PERCFG &= ~HAL_UART_PERCFG_BIT;    // Set UART0 I/O location to P0.
 #else
-  PERCFG |= HAL_UART_PERCFG_BIT;     // Set UART1 I/O location to P1.
+  PERCFG &= ~HAL_UART_PERCFG_BIT;     // Set UART1 I/O location to P0.
 #endif
   PxSEL  |= HAL_UART_Px_RX_TX;       // Enable Tx and Rx on P1.
   ADCCFG &= ~HAL_UART_Px_RX_TX;      // Make sure ADC doesnt use this.

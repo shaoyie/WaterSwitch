@@ -378,6 +378,11 @@ uint8 DecideWorkMode(){
       }
       
     } else {
+      //If pump is error
+      if(device_Status & PUMP_ERROR){
+        //We cannot change otherwise the fire side water will go to the salor tank
+        return zclWATERSWITCH_OnOff;
+      }
       //Salor condition is not good, use fire
       return SALOR_OFF;
     }
@@ -438,8 +443,8 @@ static void TurnOnOffValues(uint salorStatus){
       } else {
         zclGeneral_SendOnOff_CmdOff( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
       }
-      CheckPendingTask(TURN_ON_OFF_VALVE);
     }
+    CheckPendingTask(TURN_ON_OFF_VALVE);
     if(salorStatus == SALOR_ON){
       //Local valve should turn off
       TurnOnOffValve(PUMP_OFF);
@@ -603,6 +608,7 @@ void UpdateLeds(){
       }
     }
   } else {
+    lastStatus = device_Status;
     if(zclWATERSWITCH_OnOff == SALOR_ON){
       HalLedSet( HAL_LED_4, HAL_LED_MODE_ON );
       HalLedSet( HAL_LED_3, HAL_LED_MODE_OFF );

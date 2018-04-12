@@ -142,7 +142,7 @@ void UpdateLeds();
 #endif
 #if DEVICE_TYPE==WS_GATEWAY   
 void HandelSerialData(mtOSALSerialData_t *pkt );
-void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len);
+void SendSerialData(uint8 cmd0, uint8 cmd1, uint8* data, uint8 len);
 #endif
 
 void SendFlowReport();

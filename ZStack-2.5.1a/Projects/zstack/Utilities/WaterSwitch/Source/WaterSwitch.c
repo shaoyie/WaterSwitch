@@ -427,6 +427,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
 #if DEVICE_TYPE==WS_GATEWAY
       case CMD_SERIAL_MSG:
         HandelSerialData((mtOSALSerialData_t *)MSGpkt);
+        break;
 #endif
       default:
         break;
@@ -533,6 +534,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
 */
 static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
 {
+  ZDO_ActiveEndpointRsp_t *pRsp;
   switch ( inMsg->clusterID )
   {
   case End_Device_Bind_rsp:
@@ -558,7 +560,7 @@ static void WaterSwitch_ProcessZDOMsgs( zdoIncomingMsg_t *inMsg )
     LOG_OUTPUT(LOG_INFO, "Match_Desc_rsp\n");
     binding = 0;
     
-    ZDO_ActiveEndpointRsp_t *pRsp = ZDO_ParseEPListRsp( inMsg );
+    pRsp = ZDO_ParseEPListRsp( inMsg );
     if ( pRsp )
     {
       if ( pRsp->status == ZSuccess && pRsp->cnt )

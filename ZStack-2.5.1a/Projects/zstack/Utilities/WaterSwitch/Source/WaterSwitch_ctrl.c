@@ -242,7 +242,9 @@ void HandelSerialData(mtOSALSerialData_t *pkt ){
   
   
   INFO_OUTPUT(LOG_DEBUG, "Uart got:", 9); 
-  INFO_OUTPUT(LOG_DEBUG, &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
+  if(length>0){
+    INFO_OUTPUT(LOG_DEBUG, &(pkt->msg[MT_RPC_FRAME_HDR_SZ]), length); 
+  }
 }
 
 
@@ -278,11 +280,13 @@ void ReadAttributeForCmd(uint8 cmd1){
 }
 
 //Send the given data through the serial port
-void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len){
+void SendSerialData(uint8 cmd0, uint8 cmd1, uint8* data, uint8 len){
   uint8* pbuf;
   int i=0;
   int readIndex=0;
-  pbuf=(uint8*)osal_msg_allocate(len + 5);
+
+  pbuf=(uint8*)osal_mem_alloc(len + 5);
+  
   
   if(pbuf){
     //Fill the header
@@ -313,11 +317,12 @@ void SendSerialData(uint cmd0, uint cmd1, uint8* data, uint8 len){
 uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
 {
   zclReadRspCmd_t *readRspCmd;
-  uint8 i;
+  uint8 i=0;
   zclReadRspStatus_t* prsp;
   
   readRspCmd = (zclReadRspCmd_t *)pInMsg->attrCmd;
-  for (i = 0; i < readRspCmd->numAttr; i++)
+  
+  //for (i = 0; i < readRspCmd->numAttr; i++)
   {
     prsp= &(readRspCmd->attrList[i]);
     if(prsp->status == ZCL_STATUS_SUCCESS){
