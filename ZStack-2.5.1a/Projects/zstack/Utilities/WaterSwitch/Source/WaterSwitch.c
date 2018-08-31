@@ -495,6 +495,17 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
     return (events ^ WATERSWITCH_FIRE_OPERATION_EVT);
   }
 #endif
+#if DEVICE_TYPE==WS_PUMP
+  if ( events & WATERSWITCH_TURN_OFF_PUMP_EVT )
+  {
+    //Turn off the pump
+    PUMP_SWITCH = 0;
+    
+    LOG_OUTPUT(LOG_DEBUG, "Pump turned off\n\r");
+    // return unprocessed events
+    return (events ^ WATERSWITCH_TURN_OFF_PUMP_EVT);
+  }
+#endif
 #if defined( IAR_ARMCM3_LM )
   // Receive a message from the RTOS queue
   if ( events & WATERSWITCH_RTOS_MSG_EVT )
@@ -723,7 +734,18 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     }
     if ( keys & HAL_KEY_SW_3 )
     {
-      
+#if DEVICE_TYPE==WS_PUMP
+      //Turn on the pump
+      if(zclWATERSWITCH_OnOff == PUMP_ON
+         &&canTurnOnPump){
+        PUMP_SWITCH = 1;
+        LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
+      }
+      osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_TURN_OFF_PUMP_EVT );
+      osal_start_timerEx( WaterSwitch_TaskID,
+                     WATERSWITCH_TURN_OFF_PUMP_EVT,
+                     WATERSWITCH_DELAY_TIMEOUT );
+#endif
       LOG_OUTPUT(LOG_DEBUG,"Btn 3 pressed\n\r");
     }
     

@@ -177,6 +177,15 @@
 #define PUSH4_POLARITY    ACTIVE_HIGH
 #endif
 
+#if DEVICE_TYPE==WS_PUMP
+#define PUSH3_PORT   P1
+#define PUSH3_SEL    P1SEL
+#define PUSH3_DIR    P1DIR
+#define PUSH3_BV          BV(2)
+#define PUSH3_SBIT        P1_2
+#define PUSH3_POLARITY    ACTIVE_HIGH
+#endif
+
 /* ------------------------------------------------------------------------------------------------
  *                         OSAL NV implemented by internal flash pages.
  * ------------------------------------------------------------------------------------------------
@@ -356,6 +365,9 @@ extern void MAC_RfFrontendSetup(void);
 #if DEVICE_TYPE==WS_COORDINATOR
 #define HAL_PUSH_BUTTON3()        (PUSH3_POLARITY (PUSH3_SBIT))
 #define HAL_PUSH_BUTTON4()        (PUSH4_POLARITY (PUSH4_SBIT))
+#elif DEVICE_TYPE==WS_PUMP
+#define HAL_PUSH_BUTTON3()        (PUSH3_POLARITY (PUSH3_SBIT))
+#define HAL_PUSH_BUTTON4()        (0)
 #else
 #define HAL_PUSH_BUTTON3()        (0)
 #define HAL_PUSH_BUTTON4()        (0)

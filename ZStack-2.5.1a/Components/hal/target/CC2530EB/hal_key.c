@@ -170,6 +170,16 @@
 #define PUSH4_PXIFG    P1IFG /* Interrupt flag at source */
 #endif
 
+#if DEVICE_TYPE==WS_PUMP
+#define PUSH3_EDGEBIT  BV(1)
+#define PUSH3_EDGE     HAL_KEY_RISING_EDGE
+#define PUSH3_IEN      P1IEN  /* CPU interrupt mask register */
+#define PUSH3_IENBIT   BV(2) /* P0IENL */
+#define PUSH3_ICTL     PICTL /* Port Interrupt Control register */
+#define PUSH3_ICTLBIT  BV(1) /*Edge control for P0*/
+#define PUSH3_PXIFG    P1IFG /* Interrupt flag at source */
+#endif
+
 
 /**************************************************************************************************
  *                                            TYPEDEFS
@@ -227,6 +237,11 @@ void HalKeyInit( void )
   PUSH4_SEL &= ~(PUSH4_BV); /* Set pin function to GPIO */
   PUSH4_DIR &= ~(PUSH4_BV); /* Set pin direction to Input */
   P1INP |= (PUSH3_BV|PUSH4_BV);
+#endif
+#if DEVICE_TYPE==WS_PUMP
+  PUSH3_SEL &= ~(PUSH3_BV); /* Set pin function to GPIO */
+  PUSH3_DIR &= ~(PUSH3_BV); /* Set pin direction to Input */
+  P1INP |= (PUSH3_BV);
 #endif
 
   /* Initialize callback function */
@@ -328,7 +343,24 @@ void HalKeyConfig (bool interruptEnable, halKeyCBack_t cback)
     PUSH4_IEN |= PUSH4_IENBIT;
     PUSH4_PXIFG = ~(PUSH4_BV);
 #endif
+#if DEVICE_TYPE==WS_PUMP
+        /* Rising/Falling edge configuratinn */
 
+    PUSH3_ICTL &= ~(PUSH3_EDGEBIT);    /* Clear the edge bit */
+    /* For falling edge, the bit must be set. */
+  #if (PUSH3_EDGE == HAL_KEY_FALLING_EDGE)
+    PUSH3_ICTL |= PUSH3_EDGEBIT;
+  #endif
+
+
+    /* Interrupt configuration:
+     * - Enable interrupt generation at the port
+     * - Enable CPU interrupt
+     * - Clear any pending interrupt
+     */
+    PUSH3_IEN |= PUSH3_IENBIT;
+    PUSH3_PXIFG = ~(PUSH3_BV);
+#endif
 
     /* Do this only after the hal_key is configured - to work with sleep stuff */
     if (HalKeyConfigured == TRUE)
@@ -402,6 +434,12 @@ void HalKeyPoll (void)
   {
     keys |= HAL_KEY_SW_1; 
   }
+#if DEVICE_TYPE==WS_PUMP
+  if (HAL_PUSH_BUTTON3())//S2
+  {
+    keys |= HAL_KEY_SW_3; 
+  }
+#endif
 #if 0
   if (HAL_PUSH_BUTTON3())//S2
   {
@@ -529,6 +567,14 @@ void halProcessKeyInterrupt (void)
     p1_3_time=osal_GetSystemClock();
   }
 #endif
+  
+#if DEVICE_TYPE==WS_PUMP
+  if (PUSH3_PXIFG & PUSH3_BV)  /* Interrupt Flag has been set */
+  {
+    PUSH3_PXIFG &= ~(PUSH3_BV); /* Clear Interrupt Flag */
+    valid = TRUE;
+  }
+#endif
 
   if (valid)
   {
@@ -614,6 +660,18 @@ HAL_ISR_FUNCTION( halKeyPort1Isr, P1INT_VECTOR )
     PxIFG has to be cleared before PxIF
   */
   PUSH4_PXIFG = 0;
+#endif
+#if DEVICE_TYPE==WS_PUMP
+  if (PUSH3_PXIFG & PUSH3_BV)
+  {
+    halProcessKeyInterrupt();
+  }
+
+  /*
+    Clear the CPU interrupt flag for Port_0
+    PxIFG has to be cleared before PxIF
+  */
+  PUSH3_PXIFG = 0;
 #endif
   HAL_KEY_CPU_PORT_1_IF = 0;
 }
