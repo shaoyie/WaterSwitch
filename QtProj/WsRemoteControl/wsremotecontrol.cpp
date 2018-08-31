@@ -9,6 +9,16 @@
 
 #define TIMER_INTERVAL  1000
 
+#ifdef Q_OS_WIN32
+// win
+#define DISCONNECT_GAP  3000
+#endif
+
+#ifdef Q_OS_LINUX
+// linux
+#define DISCONNECT_GAP  40000
+#endif
+
 const QString WsRemoteControl::PREFERENCES_NAME = "pref";
 const qint32 WsRemoteControl::MAX_LOGS_VISIBLE = 9999;
 
@@ -161,6 +171,7 @@ void WsRemoteControl::cmdProcess(QByteArray cmd){
     byte cmd1=cmd[RPC_POS_CMD1];
     byte length=cmd[RPC_POS_LEN];
     int temp;
+    lastReceiveTime = clock();
 
     switch(cmd1){
     case CMD1_TEMP:
@@ -268,6 +279,9 @@ void WsRemoteControl::cmdProcess(QByteArray cmd){
             ui->salorSelector->hide();
         }
         break;
+    case CMD1_SWITCH_OUTPUT:
+        setDebugOpts(cmd[RPC_POS_DAT0]);
+        break;
     case CMD1_NV_CONFIG:
         if(cmd0 == CMD0_READ_RSP){
             //It's we requested to read it
@@ -302,11 +316,24 @@ void WsRemoteControl::printLogMessage(QString msg)
 void WsRemoteControl::regularMonitor(){
     //Regular query the system's status
     serialDevice->queryDeviceStatus();
+    clock_t time = clock();
+    clock_t gap = time-(lastReceiveTime);
+    if(gap>DISCONNECT_GAP){
+        //3 seconds didn't get response
+        coordinatorConnected = false;
+        ui->fireIcon->hide();
+        ui->salorIcon->hide();
+    } else {
+        coordinatorConnected = true;
+        ui->fireIcon->show();
+        ui->salorIcon->show();
+    }
+
 }
 
 void WsRemoteControl::on_workModeButton_clicked()
 {
-    if(serialDevice!=NULL){
+    if(serialDevice!=NULL && coordinatorConnected){
         byte workModeL = !workMode;
         serialDevice->sendSerialData(CMD0_WRITE, CMD1_WORK_MODE, &workModeL, 1);
     }
@@ -314,7 +341,7 @@ void WsRemoteControl::on_workModeButton_clicked()
 
 void WsRemoteControl::on_heaterButton_clicked()
 {
-    if(serialDevice!=NULL){
+    if(serialDevice!=NULL && coordinatorConnected){
         byte supplier=!waterSupplier;
         serialDevice->sendSerialData(CMD0_WRITE, CMD1_WATER_SUPPLIER, &supplier, 1);
     }
@@ -376,6 +403,127 @@ void WsRemoteControl::on_resetButton_clicked()
 void WsRemoteControl::on_tabWidget_currentChanged(int index)
 {
     if(serialDevice!=NULL){
-        serialDevice->sendSerialData(CMD0_READ, CMD1_NV_CONFIG, NULL, 0);
+        if(index==1){
+            serialDevice->sendSerialData(CMD0_READ, CMD1_NV_CONFIG, NULL, 0);
+        } else if(index==2){
+            serialDevice->sendSerialData(CMD0_READ, CMD1_SWITCH_OUTPUT, NULL, 0);
+        }
+    }
+}
+
+void WsRemoteControl::on_allCB_toggled(bool checked)
+{
+    if(!setDbgOpts){
+        //Only operate when we are not is a big config
+        if(checked){
+            setDebugOpts(ALL_OUTPUT_MASK);
+            saveDebugOpts(ALL_OUTPUT_MASK);
+        } else {
+            setDebugOpts(0);
+            saveDebugOpts(0);
+        }
+    }
+}
+
+void WsRemoteControl::on_infoCB_toggled(bool checked)
+{
+    markSingleDebugOpt(LOG_INFO, checked);
+}
+
+void WsRemoteControl::on_dbgCB_toggled(bool checked)
+{
+    markSingleDebugOpt(LOG_DEBUG, checked);
+}
+
+void WsRemoteControl::on_errCB_toggled(bool checked)
+{
+    markSingleDebugOpt(LOG_ERROR, checked);
+}
+
+void WsRemoteControl::on_outputCB_toggled(bool checked)
+{
+    markSingleDebugOpt(OUTPUT_AF_MESSAGE, checked);
+}
+
+void WsRemoteControl::markSingleDebugOpt(byte mask, bool toggle){
+    if(!setDbgOpts){
+        //Only operate when we are not is a big config
+        byte opts = readCurrentDebugOptsConfig();
+        if(toggle){
+            opts|=mask;
+        } else {
+            opts &= (~mask);
+        }
+        //All selected?
+        setDebugOpts(opts);
+        saveDebugOpts(opts);
+    }
+}
+
+void WsRemoteControl::setDebugOpts(byte dbgOpt){
+    //We are setting it, should write back before we are done
+    setDbgOpts = true;
+    //The different output levels
+    if(dbgOpt & LOG_INFO){
+        ui->infoCB->setChecked(true);
+    } else {
+        ui->infoCB->setChecked(false);
+    }
+    if(dbgOpt & LOG_DEBUG){
+        ui->dbgCB->setChecked(true);
+    } else {
+        ui->dbgCB->setChecked(false);
+    }
+    if(dbgOpt & LOG_ERROR){
+        ui->errCB->setChecked(true);
+    } else {
+        ui->errCB->setChecked(false);
+    }
+    //Control the output
+    if(dbgOpt & OUTPUT_AF_MESSAGE){
+        ui->outputCB->setChecked(true);
+    } else {
+        ui->outputCB->setChecked(false);
+    }
+    //All selected?
+    if((dbgOpt&ALL_OUTPUT_MASK)^ALL_OUTPUT_MASK){
+        ui->allCB->setChecked(false);
+    } else {
+        ui->allCB->setChecked(true);
+    }
+    //We are done, can write back now
+    setDbgOpts = false;
+}
+
+byte WsRemoteControl::readCurrentDebugOptsConfig(){
+    byte dbgOpts=0;
+    if(ui->allCB->isChecked()){
+        //If all is checked, then select all
+        dbgOpts|=ALL_OUTPUT_MASK;
+    } else {
+        if(ui->infoCB->isChecked()){
+            //Info output
+            dbgOpts|=LOG_INFO;
+        }
+        if(ui->dbgCB->isChecked()){
+            //Debug output
+            dbgOpts|=LOG_DEBUG;
+        }
+        if(ui->errCB->isChecked()){
+            //Error output
+            dbgOpts|=LOG_ERROR;
+        }
+        if(ui->outputCB->isChecked()){
+            //Output on AF message
+            dbgOpts|=OUTPUT_AF_MESSAGE;
+        }
+    }
+    return dbgOpts;
+}
+
+void WsRemoteControl::saveDebugOpts(byte dbgOpt){
+
+    if((!setDbgOpts) && serialDevice!=NULL){
+        serialDevice->sendSerialData(CMD0_WRITE, CMD1_SWITCH_OUTPUT, &dbgOpt, 1);
     }
 }

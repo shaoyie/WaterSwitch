@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QTimer>
+#include <time.h>
 #include "wsserialdevice.h"
 
 #define TEMP_ONLINE                    (1)
@@ -21,6 +22,16 @@
 #define WATER_TEMP_MASK  0x00ff
 #define ENV_TEMP_SHIFT   8
 #define WATER_TEMP_SHIFT    0
+
+#define LOG_INFO    2
+#define LOG_DEBUG   4
+#define LOG_ERROR   8
+#define DATA_OUTPUT   16
+
+#define ALL_OUTPUT_MASK 0x0f
+
+#define OUTPUT_SEIRAL                       0
+#define OUTPUT_AF_MESSAGE                   1     //Redirect the debug output
 
 namespace Ui {
 class WsRemoteControl;
@@ -68,6 +79,16 @@ private slots:
 
     void on_tabWidget_currentChanged(int index);
 
+    void on_allCB_toggled(bool checked);
+
+    void on_infoCB_toggled(bool checked);
+
+    void on_dbgCB_toggled(bool checked);
+
+    void on_errCB_toggled(bool checked);
+
+    void on_outputCB_toggled(bool checked);
+
 private:
     static const QString PREFERENCES_NAME;
     static const qint32 MAX_LOGS_VISIBLE;
@@ -79,6 +100,9 @@ private:
     waterSwichConfig_t nvConfig;
 
     bool comInited = 0;
+    bool coordinatorConnected=false;
+    bool setDbgOpts = false;
+    clock_t lastReceiveTime;
     WsSerialDevice *serialDevice = NULL;
     QTimer *timer = NULL;
 
@@ -89,6 +113,10 @@ private:
     void startMonitor();
     void stopMonitor();
     void populateNvConfig();
+    void setDebugOpts(byte dbgOpt);
+    byte readCurrentDebugOptsConfig();
+    void saveDebugOpts(byte dbgOpt);
+    void markSingleDebugOpt(byte mask, bool toggle);
 
 signals:
     void logMessage(QString msg);
