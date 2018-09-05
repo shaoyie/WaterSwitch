@@ -29,6 +29,8 @@
 #include "MT.h"
 
 #if DEVICE_TYPE==WS_PUMP
+int canTurnOnPump=0;
+uint32 lastTurnOffTime=0;
 
 void WaterSwitch_InitIO(void){
   //Input
@@ -42,13 +44,14 @@ void WaterSwitch_InitIO(void){
   //Output
   P2INP |= 1<<5;//pull-down for output
   
-  P0INP &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /*pull-up/pull-down*/
-  P0SEL &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV);    /* Set pin function to GPIO */
-  P0DIR|= (PUMP_POWER_BV|PUMP_DIRECTION_BV);   /* Set pin direction to Output */
+  P0INP &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV|PUMP_SWITCH_BV);    /*pull-up/pull-down*/
+  P0SEL &= ~(PUMP_POWER_BV|PUMP_DIRECTION_BV|PUMP_SWITCH_BV);    /* Set pin function to GPIO */
+  P0DIR|= (PUMP_POWER_BV|PUMP_DIRECTION_BV|PUMP_SWITCH_BV);   /* Set pin direction to Output */
   
   //Clear the output
   PUMP_POWER = 0;
   PUMP_DIRECTION = 0;
+  PUMP_SWITCH = 0;
 }
 
 void CheckPendingTaskCB(){
@@ -74,6 +77,7 @@ void zclWATERSWITCH_OnOffCB( uint8 cmd )
   // Turn off
   else if ( cmd == COMMAND_OFF ){
     zclWATERSWITCH_OnOff = PUMP_OFF;
+    canTurnOnPump = 0;
   }
   // Toggle the light
   else

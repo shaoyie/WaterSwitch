@@ -26,5 +26,12 @@ void StopValueOutput(void){
   LOG_OUTPUT(LOG_INFO,  "Stop drive valve\r\n");
   //Stop direction output
   PUMP_DIRECTION=ACTIVE_HIGH(PUMP_OFF);
+#if DEVICE_TYPE==WS_PUMP
+  //If the salor is on
+  if(zclWATERSWITCH_OnOff == PUMP_ON){
+    //Then we can turn on the pump
+    canTurnOnPump = 1;
+  }
+#endif
 }
 #endif

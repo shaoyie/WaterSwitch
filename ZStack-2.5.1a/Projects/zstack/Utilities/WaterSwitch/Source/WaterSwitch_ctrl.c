@@ -317,12 +317,12 @@ void SendSerialData(uint8 cmd0, uint8 cmd1, uint8* data, uint8 len){
 uint8 zclWATERSWITCH_ProcessInReadRspCmd( zclIncomingMsg_t *pInMsg )
 {
   zclReadRspCmd_t *readRspCmd;
-  uint8 i=0;
+  uint8 i;
   zclReadRspStatus_t* prsp;
   
   readRspCmd = (zclReadRspCmd_t *)pInMsg->attrCmd;
   
-  //for (i = 0; i < readRspCmd->numAttr; i++)
+  for (i = 0; i < readRspCmd->numAttr; i++)
   {
     prsp= &(readRspCmd->attrList[i]);
     if(prsp->status == ZCL_STATUS_SUCCESS){

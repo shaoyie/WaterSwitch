@@ -500,7 +500,8 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
   {
     //Turn off the pump
     PUMP_SWITCH = 0;
-    
+    //Debounce, avoid the shut down water flow trigger on the pump again
+    lastTurnOffTime = osal_GetSystemClock();
     LOG_OUTPUT(LOG_DEBUG, "Pump turned off\n\r");
     // return unprocessed events
     return (events ^ WATERSWITCH_TURN_OFF_PUMP_EVT);
@@ -709,7 +710,7 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     if ( keys & HAL_KEY_SW_1 )
     {    
       
-      LOG_OUTPUT(LOG_DEBUG, "Btn 1 pressed\n\r");
+      //LOG_OUTPUT(LOG_DEBUG, "Btn 1 pressed\n\r");
 #if DEVICE_TYPE==WS_COORDINATOR
       uint32 now=osal_GetSystemClock();
       //Debounce
@@ -722,7 +723,7 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     
     if ( keys & HAL_KEY_SW_2 )
     {
-      LOG_OUTPUT(LOG_DEBUG, "Btn 2 pressed\n\r");
+      //LOG_OUTPUT(LOG_DEBUG, "Btn 2 pressed\n\r");
 #if DEVICE_TYPE==WS_COORDINATOR
       uint32 now=osal_GetSystemClock();
       //Debounce
@@ -735,18 +736,19 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     if ( keys & HAL_KEY_SW_3 )
     {
 #if DEVICE_TYPE==WS_PUMP
+      uint32 now=osal_GetSystemClock();
       //Turn on the pump
       if(zclWATERSWITCH_OnOff == PUMP_ON
-         &&canTurnOnPump){
+         &&canTurnOnPump && now - lastTurnOffTime>10000){
         PUMP_SWITCH = 1;
-        LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
-      }
-      osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_TURN_OFF_PUMP_EVT );
-      osal_start_timerEx( WaterSwitch_TaskID,
+        //LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
+        osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_TURN_OFF_PUMP_EVT );
+        osal_start_timerEx( WaterSwitch_TaskID,
                      WATERSWITCH_TURN_OFF_PUMP_EVT,
                      WATERSWITCH_DELAY_TIMEOUT );
+      }
 #endif
-      LOG_OUTPUT(LOG_DEBUG,"Btn 3 pressed\n\r");
+      //LOG_OUTPUT(LOG_DEBUG,"Btn 3 pressed\n\r");
     }
     
     if ( keys & HAL_KEY_SW_4 )

@@ -436,7 +436,7 @@ static uint8 valveStatus = PENDING;
 static void TurnOnOffValues(uint salorStatus){
   if(valveStatus!=salorStatus){
     //Only when changed, we turn on/off the valves
-    salorStatus=salorStatus;
+    valveStatus=salorStatus;
     if(device_Status & PUMP_ONLINE){
       if(salorStatus == SALOR_ON){
         zclGeneral_SendOnOff_CmdOn( WATERSWITCH_ENDPOINT, &WaterSwitch_PumpAddr, false, 0 );
@@ -463,14 +463,14 @@ void HandelFireOperationEvents(void){
     //Release it
     FIRE_SWITCH=ACTIVE_HIGH(RELEASE_KEY);
     fireOperation = 0;
-    if(zclWATERSWITCH_OnOffSwitch == AUTO_CONTROL){
+    if(zclWATERSWITCH_OnOffSwitch == AUTO_CONTROL && zclWATERSWITCH_OnOff == SALOR_OFF){
       //Wait for set the temp
       fireStatus = FIRE_STATE_TO_SET_TEMP;
       osal_start_timerEx( WaterSwitch_TaskID,
                          WATERSWITCH_FIRE_OPERATION_EVT,
                          WATERSWITCH_FIRE_POWER_DELAY_TIMEOUT);
     } else {
-      //Manual mode, turn on/off the valves directly
+      //No need to set the temp, turn on/off the valves directly
       TurnOnOffValues(zclWATERSWITCH_OnOff);
     }
     return;
