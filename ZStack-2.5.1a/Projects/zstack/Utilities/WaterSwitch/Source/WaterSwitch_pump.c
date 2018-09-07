@@ -30,7 +30,8 @@
 
 #if DEVICE_TYPE==WS_PUMP
 int canTurnOnPump=0;
-uint32 lastTurnOffTime=0;
+int drivePump=0;
+uint32 startWaterUsingCheckTime=0;
 
 void WaterSwitch_InitIO(void){
   //Input
@@ -93,5 +94,53 @@ void RegularTask( void )
   //Send flow report
   zclWATERSWITCH_Flow = ACTIVE_HIGH(WATER_USING_DETECT);
   SendFlowReport();
+}
+
+void waterFlowMeterTrigger(){
+  
+  //Turn on the pump
+  if(zclWATERSWITCH_OnOff == PUMP_ON&&canTurnOnPump
+     //&& now - lastTurnOffTime>10000
+     ){
+       
+       if(drivePump){
+         //If we are driving pump, then keep the pump on and delay shut down the pump
+         PUMP_SWITCH = 1;
+         //LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
+         osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_TURN_OFF_PUMP_EVT );
+         osal_start_timerEx( WaterSwitch_TaskID,
+                            WATERSWITCH_TURN_OFF_PUMP_EVT,
+                            WATERSWITCH_DELAY_TIMEOUT*1.5);
+       } else if(ACTIVE_HIGH(WATER_USING_DETECT)){
+         //The water flow is big enough, so we needn't turn on
+         //Do nothing
+         
+       } else {
+         uint32 now=osal_GetSystemClock();
+         //Triggered, and the pump is not on, we need to prepare for work
+         if(startWaterUsingCheckTime==0||now-startWaterUsingCheckTime>4000){
+           //Not start check or the check time is too long ago, then let's start to check
+           startWaterUsingCheckTime=now;
+           LOG_OUTPUT(LOG_DEBUG, "Start check water using\n\r");
+         } else if(now-startWaterUsingCheckTime<3000){
+           //Debounce 3 seconds
+           //Do nothing
+         } else {
+           //Turn on the pump
+           drivePump=1;
+           LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
+         }
+       }
+     }
+}
+
+
+void turnOffPump(){
+  
+  PUMP_SWITCH = 0;
+  drivePump = 0;
+  startWaterUsingCheckTime=0;
+  //Debounce, avoid the shut down water flow trigger on the pump again
+  LOG_OUTPUT(LOG_DEBUG, "Pump turned off\n\r");
 }
 #endif

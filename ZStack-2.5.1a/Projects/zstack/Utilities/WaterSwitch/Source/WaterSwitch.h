@@ -146,7 +146,10 @@ void SendSerialData(uint8 cmd0, uint8 cmd1, uint8* data, uint8 len);
 #endif
 #if DEVICE_TYPE==WS_PUMP
 extern int canTurnOnPump;
-extern uint32 lastTurnOffTime;
+extern int drivePump;
+extern uint32 startWaterUsingCheckTime;
+void waterFlowMeterTrigger();
+void turnOffPump();
 #endif
 
 void SendFlowReport();

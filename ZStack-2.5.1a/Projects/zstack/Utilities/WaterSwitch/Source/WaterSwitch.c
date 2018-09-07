@@ -499,10 +499,7 @@ uint16 WaterSwitch_ProcessEvent( uint8 task_id, uint16 events )
   if ( events & WATERSWITCH_TURN_OFF_PUMP_EVT )
   {
     //Turn off the pump
-    PUMP_SWITCH = 0;
-    //Debounce, avoid the shut down water flow trigger on the pump again
-    lastTurnOffTime = osal_GetSystemClock();
-    LOG_OUTPUT(LOG_DEBUG, "Pump turned off\n\r");
+    turnOffPump();
     // return unprocessed events
     return (events ^ WATERSWITCH_TURN_OFF_PUMP_EVT);
   }
@@ -736,17 +733,7 @@ static void WaterSwitch_HandleKeys( uint8 shift, uint8 keys )
     if ( keys & HAL_KEY_SW_3 )
     {
 #if DEVICE_TYPE==WS_PUMP
-      uint32 now=osal_GetSystemClock();
-      //Turn on the pump
-      if(zclWATERSWITCH_OnOff == PUMP_ON
-         &&canTurnOnPump && now - lastTurnOffTime>10000){
-        PUMP_SWITCH = 1;
-        //LOG_OUTPUT(LOG_DEBUG, "Pump turned on\n\r");
-        osal_stop_timerEx( WaterSwitch_TaskID, WATERSWITCH_TURN_OFF_PUMP_EVT );
-        osal_start_timerEx( WaterSwitch_TaskID,
-                     WATERSWITCH_TURN_OFF_PUMP_EVT,
-                     WATERSWITCH_DELAY_TIMEOUT );
-      }
+      waterFlowMeterTrigger();
 #endif
       //LOG_OUTPUT(LOG_DEBUG,"Btn 3 pressed\n\r");
     }
